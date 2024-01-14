@@ -67,6 +67,7 @@ impl<D: Data + ?Sized> PartialEq<D> for dyn Data {
 }
 
 impl Debug for dyn Data {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.format::<format::DEBUG>().fmt(f)
     }

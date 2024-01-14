@@ -383,6 +383,7 @@ pub struct Value<'a> {
 }
 
 impl<'a> Value<'a> {
+    #[inline]
     pub fn from_data<D: crate::Data + ?Sized>(data: &'a D) -> Self {
         let mut value = Self::default();
         data.provide_value(&mut value);

@@ -1,6 +1,12 @@
 // Show which crate feature enables conditionally compiled APIs in documentation.
 #![cfg_attr(doc_cfg, feature(doc_cfg))]
-#![warn(missing_debug_implementations, unreachable_pub)]
+#![warn(
+    missing_debug_implementations,
+    unreachable_pub,
+    clippy::unwrap_used,
+    clippy::missing_inline_in_public_items
+)]
+#![allow(clippy::module_name_repetitions)]
 
 pub mod data;
 pub mod link_builder;
