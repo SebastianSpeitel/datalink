@@ -228,7 +228,7 @@ pub trait DataExt: Data {
     ///
     /// let v = vec![1i32];
     ///
-    /// let list = DataExt::as_list(&v);
+    /// let list = DataExt::as_list(&v).unwrap();
     /// assert_eq!(list.len(), 1);
     /// let item = &list[0];
     /// assert_eq!(DataExt::as_i32(item), Some(1));
@@ -292,7 +292,7 @@ pub trait DataExt: Data {
     /// let mut m = std::collections::HashMap::new();
     /// m.insert("Hello", "world!");
     ///
-    /// let items = DataExt::as_items(&m);
+    /// let items = DataExt::as_items(&m).unwrap();
     /// assert_eq!(items.len(), 1);
     /// let (key, value) = &items[0];
     /// assert_eq!(DataExt::as_str(key), Some("Hello".into()));
