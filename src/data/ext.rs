@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use crate::data::{format, BoxedData, Data};
-use crate::link_builder::LinkBuilder;
+use crate::link_builder::{LinkBuilder, LinkBuilderError as LBE};
 use crate::query::Query;
 
 pub trait DataExt: Data {
@@ -128,16 +128,12 @@ pub trait DataExt: Data {
     }
 
     #[inline]
-    #[must_use]
-    fn query(&self, query: &Query) -> Vec<(Option<BoxedData>, BoxedData)> {
-        use crate::link_builder::LinkBuilderError as LBE;
-
+    fn query(&self, query: &Query) -> Result<Vec<(Option<BoxedData>, BoxedData)>, LBE> {
         #[derive(Default)]
         struct Builder {
             links: Vec<(Option<BoxedData>, BoxedData)>,
             next_key: Option<BoxedData>,
             next_target: Option<BoxedData>,
-            error: Option<LBE>,
         }
         impl LinkBuilder for Builder {
             fn set_key(&mut self, key: BoxedData) {
@@ -159,19 +155,12 @@ pub trait DataExt: Data {
                 debug_assert!(self.next_target.is_none());
                 Ok(())
             }
-            fn error(&mut self, error: LBE) {
-                self.error.replace(error);
-            }
         }
 
         let mut builder = Builder::default();
-        self.query_links(&mut builder, query);
+        self.query_links(&mut builder, query)?;
 
-        if let Some(e) = builder.error {
-            panic!("{e:?}");
-        }
-
-        builder.links
+        Ok(builder.links)
     }
 
     // #[inline]
@@ -239,23 +228,19 @@ pub trait DataExt: Data {
     ///
     /// let v = vec![1i32];
     ///
-    /// let list = DataExt::as_list(&v);
+    /// let list = DataExt::as_list(&v).unwrap();
     /// assert_eq!(list.len(), 1);
     /// let item = &list[0];
     /// assert_eq!(DataExt::as_i32(item), Some(1));
     /// ```
     #[inline]
-    #[must_use]
     #[cfg(feature = "std")]
-    fn as_list(&self) -> Vec<BoxedData> {
-        use crate::link_builder::LinkBuilderError as LBE;
-
+    fn as_list(&self) -> Result<Vec<BoxedData>, LBE> {
         #[derive(Default)]
         struct Builder {
             has_key: bool,
             next: Option<BoxedData>,
             items: Vec<BoxedData>,
-            error: Option<LBE>,
         }
 
         impl LinkBuilder for Builder {
@@ -287,19 +272,12 @@ pub trait DataExt: Data {
                 debug_assert!(self.next.is_none());
                 Ok(())
             }
-            fn error(&mut self, error: LBE) {
-                self.error.replace(error);
-            }
         }
 
         let mut builder = Builder::default();
-        self.provide_links(&mut builder);
+        self.provide_links(&mut builder)?;
 
-        if let Some(e) = builder.error {
-            panic!("{e:?}");
-        }
-
-        builder.items
+        Ok(builder.items)
     }
 
     /// Collects all links with a key into a vec.
@@ -314,24 +292,20 @@ pub trait DataExt: Data {
     /// let mut m = std::collections::HashMap::new();
     /// m.insert("Hello", "world!");
     ///
-    /// let items = DataExt::as_items(&m);
+    /// let items = DataExt::as_items(&m).unwrap();
     /// assert_eq!(items.len(), 1);
     /// let (key, value) = &items[0];
     /// assert_eq!(DataExt::as_str(key), Some("Hello".into()));
     /// assert_eq!(DataExt::as_str(value), Some("world!".into()));
     /// ```
     #[inline]
-    #[must_use]
     #[cfg(feature = "std")]
-    fn as_items(&self) -> Vec<(BoxedData, BoxedData)> {
-        use crate::link_builder::LinkBuilderError as LBE;
-
+    fn as_items(&self) -> Result<Vec<(BoxedData, BoxedData)>, LBE> {
         #[derive(Default)]
         struct Builder {
             next_key: Option<BoxedData>,
             next_target: Option<BoxedData>,
             items: Vec<(BoxedData, BoxedData)>,
-            error: Option<LBE>,
         }
 
         impl LinkBuilder for Builder {
@@ -363,19 +337,12 @@ pub trait DataExt: Data {
                 debug_assert!(self.next_target.is_none());
                 Ok(())
             }
-            fn error(&mut self, error: LBE) {
-                self.error.replace(error);
-            }
         }
 
         let mut builder = Builder::default();
-        self.provide_links(&mut builder);
+        self.provide_links(&mut builder)?;
 
-        if let Some(e) = builder.error {
-            panic!("{e:?}");
-        }
-
-        builder.items
+        Ok(builder.items)
     }
 
     #[allow(unused_variables)]
@@ -401,7 +368,7 @@ mod tests {
 
         assert_eq!(DataExt::as_str(&m), None);
 
-        let as_vec = DataExt::as_list(&m);
+        let as_vec = DataExt::as_list(&m).unwrap();
         assert_eq!(as_vec.len(), 0);
     }
 
@@ -414,7 +381,7 @@ mod tests {
 
         assert_eq!(DataExt::as_str(&m), None);
 
-        let as_items = DataExt::as_items(&m);
+        let as_items = DataExt::as_items(&m).unwrap();
         assert_eq!(as_items.len(), 1);
         let (key, value) = &as_items[0];
         assert_eq!(DataExt::as_str(key), Some("Hello".into()));
@@ -426,7 +393,7 @@ mod tests {
     fn vec_list() {
         let v = vec!["Hello, world!"];
 
-        let vec = DataExt::as_list(&v);
+        let vec = DataExt::as_list(&v).unwrap();
 
         assert_eq!(vec.len(), 1);
         let item = &vec[0];
@@ -438,7 +405,7 @@ mod tests {
     fn vec_items() {
         let v = vec!["Hello, world!"];
 
-        let items = DataExt::as_items(&v);
+        let items = DataExt::as_items(&v).unwrap();
 
         assert_eq!(items.len(), 0);
     }

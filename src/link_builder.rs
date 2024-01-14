@@ -25,8 +25,6 @@ pub trait LinkBuilder {
     fn build(&mut self) -> Result<(), LinkBuilderError>;
 
     fn end(&mut self) -> Result<(), LinkBuilderError>;
-
-    fn error(&mut self, error: LinkBuilderError);
 }
 
 pub trait LinkBuilderExt: LinkBuilder {

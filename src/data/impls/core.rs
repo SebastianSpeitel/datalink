@@ -1,5 +1,5 @@
 use crate::data::{Data, Primitive};
-use crate::link_builder::LinkBuilder;
+use crate::link_builder::{LinkBuilder, LinkBuilderError as LBE};
 use crate::value::ValueBuiler;
 
 impl Data for () {}
@@ -234,10 +234,10 @@ impl<D: Primitive> Data for Option<D> {
     }
 
     #[inline]
-    fn provide_links(&self, builder: &mut dyn LinkBuilder) {
+    fn provide_links(&self, builder: &mut dyn LinkBuilder) -> Result<(), LBE> {
         match self {
             Some(data) => data.provide_links(builder),
-            None => builder.end().unwrap(),
+            None => builder.end(),
         }
     }
 }

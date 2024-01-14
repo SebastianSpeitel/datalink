@@ -266,7 +266,9 @@ mod recursive {
                 next_target: None,
                 phantom: PhantomData,
             };
-            self.data.provide_links(&mut builder);
+            self.data
+                .provide_links(&mut builder)
+                .map_err(|_| std::fmt::Error)?;
             Ok(())
         }
     }
@@ -308,8 +310,6 @@ mod recursive {
             self.fmt_set.finish()?;
             Ok(())
         }
-
-        fn error(&mut self, _error: LBE) {}
     }
 }
 
@@ -328,7 +328,8 @@ mod serial {
         #[inline]
         pub(super) fn new(data: &'d D, state: F::State) -> Self {
             let mut builder = SerialLinkBuilder::default();
-            data.provide_links(&mut builder);
+            // TODO: do something about an error here
+            let _ = data.provide_links(&mut builder);
             Self {
                 state,
                 links: builder.links,
@@ -387,8 +388,6 @@ mod serial {
             debug_assert!(self.next_target.is_none());
             Ok(())
         }
-
-        fn error(&mut self, _error: LBE) {}
     }
 }
 

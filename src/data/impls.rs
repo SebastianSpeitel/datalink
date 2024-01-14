@@ -1,6 +1,6 @@
 use crate::data::{BoxedData, Data, Primitive};
 use crate::id::ID;
-use crate::link_builder::LinkBuilder;
+use crate::link_builder::{LinkBuilder, LinkBuilderError as LBE};
 use crate::value::ValueBuiler;
 
 mod core;
@@ -18,11 +18,15 @@ impl Data for &dyn Data {
         (**self).provide_value(builder)
     }
     #[inline]
-    fn provide_links(&self, builder: &mut dyn LinkBuilder) {
+    fn provide_links(&self, builder: &mut dyn LinkBuilder) -> Result<(), LBE> {
         (**self).provide_links(builder)
     }
     #[inline]
-    fn query_links(&self, builder: &mut dyn LinkBuilder, query: &crate::query::Query) {
+    fn query_links(
+        &self,
+        builder: &mut dyn LinkBuilder,
+        query: &crate::query::Query,
+    ) -> Result<(), LBE> {
         (**self).query_links(builder, query)
     }
     #[inline]
@@ -40,11 +44,15 @@ impl Data for BoxedData {
         (**self).provide_value(builder)
     }
     #[inline]
-    fn provide_links(&self, builder: &mut dyn LinkBuilder) {
+    fn provide_links(&self, builder: &mut dyn LinkBuilder) -> Result<(), LBE> {
         (**self).provide_links(builder)
     }
     #[inline]
-    fn query_links(&self, builder: &mut dyn LinkBuilder, query: &crate::query::Query) {
+    fn query_links(
+        &self,
+        builder: &mut dyn LinkBuilder,
+        query: &crate::query::Query,
+    ) -> Result<(), LBE> {
         (**self).query_links(builder, query)
     }
     #[inline]
