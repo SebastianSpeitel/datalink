@@ -1,7 +1,7 @@
 use crate::data::unique::Unique;
 use crate::data::{format, Data, DataExt, Primitive};
 use crate::id::ID;
-use crate::link_builder::LinkBuilder;
+use crate::link_builder::{LinkBuilder, LinkBuilderError as LBE};
 use crate::value::ValueBuiler;
 
 /// Wrapper for data with compile-time constant ID
@@ -74,12 +74,16 @@ impl<const I: u128, D: Data + ?Sized> Data for Const<I, D> {
     }
 
     #[inline]
-    fn provide_links(&self, builder: &mut dyn LinkBuilder) {
+    fn provide_links(&self, builder: &mut dyn LinkBuilder) -> Result<(), LBE> {
         self.0.provide_links(builder)
     }
 
     #[inline]
-    fn query_links(&self, builder: &mut dyn LinkBuilder, query: &crate::query::Query) {
+    fn query_links(
+        &self,
+        builder: &mut dyn LinkBuilder,
+        query: &crate::query::Query,
+    ) -> Result<(), LBE> {
         self.0.query_links(builder, query)
     }
 

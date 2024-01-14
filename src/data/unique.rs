@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 use crate::data::{format, Data, DataExt, Primitive};
 use crate::id::ID;
-use crate::link_builder::LinkBuilder;
+use crate::link_builder::{LinkBuilder, LinkBuilderError as LBE};
 use crate::value::ValueBuiler;
 
 #[derive(Debug, thiserror::Error)]
@@ -88,14 +88,23 @@ impl<D: Data + ?Sized, T: Borrow<D>> AsRef<D> for AlwaysUnique<D, T> {
     }
 }
 
+#[warn(clippy::missing_trait_methods)]
 impl<D: Data + ?Sized, T: Borrow<D>> Data for AlwaysUnique<D, T> {
     #[inline]
     fn provide_value<'d>(&'d self, builder: &mut dyn ValueBuiler<'d>) {
         self.as_ref().provide_value(builder)
     }
     #[inline]
-    fn provide_links(&self, builder: &mut dyn LinkBuilder) {
+    fn provide_links(&self, builder: &mut dyn LinkBuilder) -> Result<(), LBE> {
         self.as_ref().provide_links(builder)
+    }
+    #[inline]
+    fn query_links(
+        &self,
+        builder: &mut dyn LinkBuilder,
+        query: &crate::query::Query,
+    ) -> Result<(), LBE> {
+        self.as_ref().query_links(builder, query)
     }
     #[inline]
     fn get_id(&self) -> Option<ID> {
@@ -109,8 +118,10 @@ impl<D: Data + ?Sized, T: Borrow<D>> Unique for AlwaysUnique<D, T> {
         match self {
             AlwaysUnique::Implicit { data, .. } => {
                 let id = data.borrow().get_id();
-                assert!(id.is_some());
-                id.unwrap()
+                match id {
+                    Some(id) => id,
+                    None => unreachable!(),
+                }
             }
             AlwaysUnique::Explicit { id, .. } => *id,
         }

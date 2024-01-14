@@ -1,6 +1,9 @@
 use std::fmt::Debug;
 
-use crate::{link_builder::LinkBuilder, value::ValueBuiler};
+use crate::{
+    link_builder::{LinkBuilder, LinkBuilderError},
+    value::ValueBuiler,
+};
 
 #[cfg(feature = "unique")]
 pub mod constant;
@@ -31,14 +34,18 @@ pub trait Data {
     fn provide_value<'d>(&'d self, builder: &mut dyn ValueBuiler<'d>) {}
 
     #[inline]
-    fn provide_links(&self, builder: &mut dyn LinkBuilder) {
-        builder.end().unwrap();
+    fn provide_links(&self, builder: &mut dyn LinkBuilder) -> Result<(), LinkBuilderError> {
+        builder.end()
     }
 
     #[allow(unused_variables)]
     #[inline]
-    fn query_links(&self, builder: &mut dyn LinkBuilder, query: &crate::query::Query) {
-        self.provide_links(builder);
+    fn query_links(
+        &self,
+        builder: &mut dyn LinkBuilder,
+        query: &crate::query::Query,
+    ) -> Result<(), LinkBuilderError> {
+        self.provide_links(builder)
     }
 
     #[cfg_attr(not(feature = "unique"), doc(hidden))]
