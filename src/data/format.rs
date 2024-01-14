@@ -17,6 +17,8 @@ pub type DEBUG = FORMAT<true, 6, false>;
 pub trait DataFormatter {
     type State: Default + Copy;
 
+    #[inline]
+    #[must_use]
     fn init_state() -> Self::State {
         Default::default()
     }
@@ -212,12 +214,14 @@ impl<'d, F: DataFormatter, D: Data + ?Sized> From<&'d D> for FormattableData<'d,
 }
 
 impl<F: DataFormatter, D: Data + ?Sized> Display for FormattableData<'_, F, D> {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         F::fmt(f, self.data, F::init_state())
     }
 }
 
 impl<F: DataFormatter, D: Data + ?Sized> Debug for FormattableData<'_, F, D> {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         F::fmt(f, self.data, F::init_state())
     }
@@ -393,49 +397,64 @@ mod serial {
 
 #[warn(clippy::missing_trait_methods)]
 impl ValueBuiler<'_> for fmt::DebugStruct<'_, '_> {
+    #[inline]
     fn bool(&mut self, value: bool) {
         self.field("bool", &value);
     }
+    #[inline]
     fn u8(&mut self, value: u8) {
         self.field("u8", &value);
     }
+    #[inline]
     fn i8(&mut self, value: i8) {
         self.field("i8", &value);
     }
+    #[inline]
     fn u16(&mut self, value: u16) {
         self.field("u16", &value);
     }
+    #[inline]
     fn i16(&mut self, value: i16) {
         self.field("i16", &value);
     }
+    #[inline]
     fn u32(&mut self, value: u32) {
         self.field("u32", &value);
     }
+    #[inline]
     fn i32(&mut self, value: i32) {
         self.field("i32", &value);
     }
+    #[inline]
     fn u64(&mut self, value: u64) {
         self.field("u64", &value);
     }
+    #[inline]
     fn i64(&mut self, value: i64) {
         self.field("i64", &value);
     }
+    #[inline]
     fn u128(&mut self, value: u128) {
         self.field("u128", &value);
     }
+    #[inline]
     fn i128(&mut self, value: i128) {
         self.field("i128", &value);
     }
+    #[inline]
     fn f32(&mut self, value: f32) {
         self.field("f32", &value);
     }
+    #[inline]
     fn f64(&mut self, value: f64) {
         self.field("f64", &value);
     }
+    #[inline]
     fn str(&mut self, value: Cow<'_, str>) {
         let value: &str = &value;
         self.field("str", &value);
     }
+    #[inline]
     fn bytes(&mut self, value: Cow<'_, [u8]>) {
         match String::from_utf8(value.to_vec()) {
             Ok(s) => self.field("bytes", &format_args!("b{s:?}")),

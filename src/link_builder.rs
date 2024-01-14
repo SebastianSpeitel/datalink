@@ -58,10 +58,12 @@ impl<T> Link for T
 where
     T: Data + 'static,
 {
+    #[inline]
     fn key(&self) -> Option<&dyn Data> {
         None
     }
 
+    #[inline]
     fn target(&self) -> &dyn Data {
         self
     }
@@ -78,10 +80,12 @@ where
     K: Data + 'static,
     T: Data + 'static,
 {
+    #[inline]
     fn key(&self) -> Option<&dyn Data> {
         Some(&self.0)
     }
 
+    #[inline]
     fn target(&self) -> &dyn Data {
         &self.1
     }

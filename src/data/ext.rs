@@ -1,3 +1,4 @@
+#[cfg(feature = "std")]
 use std::borrow::Cow;
 
 use crate::data::{format, BoxedData, Data};

@@ -10,22 +10,26 @@ pub struct Query {
 }
 
 impl Query {
+    #[inline]
     #[must_use]
     pub fn new(selector: LinkSelector) -> Self {
         Query { selector }
     }
 
+    #[inline]
     #[must_use]
     pub fn build(mut self) -> Self {
         Selector::<BoxedData>::optimize(&mut self.selector);
         self
     }
 
+    #[inline]
     #[must_use]
     pub fn build_unoptimized(self) -> Self {
         self
     }
 
+    #[inline]
     #[must_use]
     pub fn selector(&self) -> &LinkSelector {
         &self.selector

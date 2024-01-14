@@ -30,7 +30,6 @@ impl Data for &dyn Data {
         (**self).query_links(builder, query)
     }
     #[inline]
-    #[cfg(feature = "unique")]
     fn get_id(&self) -> Option<ID> {
         (**self).get_id()
     }
@@ -56,7 +55,6 @@ impl Data for BoxedData {
         (**self).query_links(builder, query)
     }
     #[inline]
-    #[cfg(feature = "unique")]
     fn get_id(&self) -> Option<ID> {
         (**self).get_id()
     }
