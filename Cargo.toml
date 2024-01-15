@@ -8,7 +8,7 @@ default = ["std", "unique", "well_known"]
 std = []
 unique = []
 well_known = ["unique"]
-derive = ["dep:datalink-derive"]
+derive = ["dep:datalink_derive"]
 random = ["dep:rand"]
 json = ["dep:serde_json", "std"]
 toml = ["dep:toml", "std"]
@@ -18,4 +18,4 @@ rand = { version = "0.8", optional = true }
 serde_json = { version = "1.0", optional = true }
 thiserror = "1.0"
 toml = { version = "0.8", optional = true }
-datalink-derive = { git = "https://github.com/SebastianSpeitel/datalink-derive.git", optional = true }
+datalink_derive = { git = "https://github.com/SebastianSpeitel/datalink_derive", optional = true }

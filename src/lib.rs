@@ -29,4 +29,6 @@ pub mod prelude {
     pub use crate::data::Data;
     #[cfg(feature = "unique")]
     pub use crate::id::ID;
+    #[cfg(feature = "derive")]
+    pub use datalink_derive::Data;
 }
