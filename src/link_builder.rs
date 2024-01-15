@@ -6,8 +6,8 @@ pub enum LinkBuilderError {
     MissingTarget,
     #[error("Already ended")]
     AlreadyEnded,
-    #[error("Other: {0}")]
-    Other(Box<dyn std::error::Error + Send + Sync + 'static>),
+    #[error(transparent)]
+    Other(#[from] Box<dyn std::error::Error + Send + Sync + 'static>),
 }
 
 impl From<std::fmt::Error> for LinkBuilderError {
