@@ -4,6 +4,13 @@ pub use selectors::*;
 use crate::data::BoxedData;
 use crate::link_builder::Link;
 
+pub mod prelude {
+    pub use super::DataSelector as Data;
+    pub use super::LinkSelector as Link;
+    pub use super::Query;
+    pub use super::TextSelector as Text;
+}
+
 #[derive(Default, Debug)]
 pub struct Query {
     selector: LinkSelector,

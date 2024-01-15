@@ -23,8 +23,6 @@ pub mod id;
 pub use data::{BoxedData, Data};
 
 pub mod prelude {
-    pub use crate::data;
-
     #[cfg(feature = "unique")]
     pub use crate::data::unique::{MaybeUnique, Unique};
     pub use crate::data::BoxedData;
