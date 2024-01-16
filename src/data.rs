@@ -77,6 +77,25 @@ impl Debug for dyn Data {
         self.format::<format::DEBUG>().fmt(f)
     }
 }
+impl Debug for dyn Data + Sync {
+    #[inline]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.format::<format::DEBUG>().fmt(f)
+    }
+}
+impl Debug for dyn Data + Send {
+    #[inline]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.format::<format::DEBUG>().fmt(f)
+    }
+}
+impl Debug for dyn Data + Sync + Send {
+    #[inline]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.format::<format::DEBUG>().fmt(f)
+    }
+}
+
 /// Marker trait to automatically implement `Data` for containers of this type
 pub trait Primitive: Data {}
 
