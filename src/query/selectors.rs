@@ -101,6 +101,11 @@ impl DataSelector {
     pub fn not_id(id: impl Into<ID>) -> Self {
         Self::NotId(id.into())
     }
+    #[inline]
+    #[must_use]
+    pub fn linked(selector: impl Into<LinkSelector>) -> Self {
+        Self::Linked(Box::new(selector.into()))
+    }
     #[cfg(feature = "unique")]
     #[inline]
     #[must_use]
@@ -150,7 +155,7 @@ impl<D: Data + ?Sized> Selector<D> for DataSelector {
             E::Not(s) => !s.selects(d),
             E::Unique => d.get_id().is_some(),
             E::Linked(_s) => {
-                todo!();
+                unimplemented!();
             }
             E::Text(s) => {
                 enum Matcher<'a> {
