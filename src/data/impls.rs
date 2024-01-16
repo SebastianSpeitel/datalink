@@ -1,4 +1,4 @@
-use crate::data::{BoxedData, Data, Primitive};
+use crate::data::{Data, Primitive};
 use crate::id::ID;
 use crate::link_builder::{LinkBuilder, LinkBuilderError as LBE};
 use crate::value::ValueBuiler;
@@ -34,10 +34,11 @@ impl Data for &dyn Data {
         (**self).get_id()
     }
 }
+impl Primitive for dyn Data {}
 impl Primitive for &dyn Data {}
 
 #[warn(clippy::missing_trait_methods)]
-impl Data for BoxedData {
+impl<D: Data + ?Sized> Data for Box<D> {
     #[inline]
     fn provide_value<'d>(&'d self, builder: &mut dyn ValueBuiler<'d>) {
         (**self).provide_value(builder)
@@ -59,7 +60,7 @@ impl Data for BoxedData {
         (**self).get_id()
     }
 }
-impl Primitive for BoxedData {}
+impl<D: Primitive + ?Sized> Primitive for Box<D> {}
 
 // #[warn(clippy::missing_trait_methods)]
 // impl<D: Data + ?Sized, F> Data for F
