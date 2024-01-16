@@ -53,3 +53,9 @@ impl<L: Link + ?Sized> Selector<L> for Query {
         Selector::<L>::optimize(&mut self.selector);
     }
 }
+
+impl From<LinkSelector> for Query {
+    fn from(value: LinkSelector) -> Self {
+        Self::new(value)
+    }
+}
