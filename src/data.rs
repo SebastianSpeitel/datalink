@@ -45,7 +45,12 @@ pub trait Data {
         builder: &mut dyn LinkBuilder,
         query: &crate::query::Query,
     ) -> Result<(), LinkBuilderError> {
-        self.provide_links(builder)
+        use crate::query::LinkSelector;
+        match query.selector() {
+            LinkSelector::None => builder.end(),
+            LinkSelector::Any => self.provide_links(builder),
+            _ => Err(LinkBuilderError::UnsupportedQuery),
+        }
     }
 
     #[cfg_attr(not(feature = "unique"), doc(hidden))]
