@@ -6,6 +6,8 @@ pub enum LinkBuilderError {
     MissingTarget,
     #[error("Already ended")]
     AlreadyEnded,
+    #[error("Unsupported query")]
+    UnsupportedQuery,
     #[error(transparent)]
     Other(#[from] Box<dyn std::error::Error + Send + Sync + 'static>),
 }
@@ -13,6 +15,16 @@ pub enum LinkBuilderError {
 impl From<std::fmt::Error> for LinkBuilderError {
     #[inline]
     fn from(err: std::fmt::Error) -> Self {
+        Self::Other(Box::new(err))
+    }
+}
+
+impl LinkBuilderError {
+    #[inline]
+    pub fn other<E>(err: E) -> Self
+    where
+        E: std::error::Error + Send + Sync + 'static,
+    {
         Self::Other(Box::new(err))
     }
 }
