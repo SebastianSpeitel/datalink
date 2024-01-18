@@ -1,6 +1,6 @@
 use ::std::{borrow::Cow, collections::HashMap};
 
-use crate::data::{Data, Primitive};
+use crate::data::Data;
 use crate::id::ID;
 use crate::link_builder::{LinkBuilder, LinkBuilderError as LBE, LinkBuilderExt};
 use crate::value::ValueBuiler;
@@ -14,7 +14,6 @@ impl Data for String {
         value.str(Cow::Borrowed(self));
     }
 }
-impl Primitive for String {}
 
 impl Data for str {
     #[inline]
@@ -22,7 +21,6 @@ impl Data for str {
         value.str(Cow::Borrowed(self));
     }
 }
-impl Primitive for str {}
 
 impl Data for &str {
     #[inline]
@@ -30,7 +28,6 @@ impl Data for &str {
         value.str(Cow::Borrowed(self));
     }
 }
-impl Primitive for &str {}
 
 impl Data for char {
     #[inline]
@@ -39,7 +36,6 @@ impl Data for char {
         value.str(Cow::Owned(self.to_string()));
     }
 }
-impl Primitive for char {}
 
 impl Data for [u8] {
     #[inline]
@@ -47,7 +43,6 @@ impl Data for [u8] {
         value.bytes(Cow::Borrowed(self));
     }
 }
-impl Primitive for [u8] {}
 
 impl Data for &[u8] {
     #[inline]
@@ -55,7 +50,6 @@ impl Data for &[u8] {
         value.bytes(Cow::Borrowed(self));
     }
 }
-impl Primitive for &[u8] {}
 
 mod path {
     use super::*;
@@ -72,7 +66,6 @@ mod path {
             value.bytes(Cow::Borrowed(OsStrExt::as_bytes(self.as_os_str())));
         }
     }
-    impl Primitive for PathBuf {}
 
     impl Data for Path {
         #[inline]
@@ -83,7 +76,6 @@ mod path {
             value.bytes(Cow::Borrowed(OsStrExt::as_bytes(self.as_os_str())));
         }
     }
-    impl Primitive for Path {}
 }
 
 mod ffi {
@@ -101,7 +93,6 @@ mod ffi {
             value.bytes(Cow::Borrowed(OsStrExt::as_bytes(self.as_os_str())));
         }
     }
-    impl Primitive for OsString {}
 
     impl Data for OsStr {
         #[inline]
@@ -112,7 +103,6 @@ mod ffi {
             value.bytes(Cow::Borrowed(OsStrExt::as_bytes(self)));
         }
     }
-    impl Primitive for OsStr {}
 }
 
 mod net {
@@ -135,7 +125,6 @@ mod net {
             value.str(self.to_string().into());
         }
     }
-    impl Primitive for net::Ipv4Addr {}
 
     impl Data for net::Ipv6Addr {
         #[inline]
@@ -143,7 +132,6 @@ mod net {
             value.str(self.to_string().into());
         }
     }
-    impl Primitive for net::Ipv6Addr {}
 
     impl Data for net::IpAddr {
         #[inline]
@@ -162,7 +150,6 @@ mod net {
             }
         }
     }
-    impl Primitive for net::IpAddr {}
 
     impl Data for net::SocketAddrV4 {
         #[inline]
@@ -183,7 +170,6 @@ mod net {
             builder.end()
         }
     }
-    impl Primitive for net::SocketAddrV4 {}
 
     impl Data for net::SocketAddrV6 {
         #[inline]
@@ -204,7 +190,6 @@ mod net {
             builder.end()
         }
     }
-    impl Primitive for net::SocketAddrV6 {}
 
     impl Data for net::SocketAddr {
         #[inline]
@@ -223,7 +208,6 @@ mod net {
             }
         }
     }
-    impl Primitive for net::SocketAddr {}
 }
 
 #[warn(clippy::missing_trait_methods)]
@@ -253,7 +237,6 @@ impl<D: Data + ?Sized> Data for ::std::sync::Arc<D> {
         (**self).get_id()
     }
 }
-impl<D: Primitive + ?Sized> Primitive for ::std::sync::Arc<D> {}
 
 #[warn(clippy::missing_trait_methods)]
 impl<D: Data + ?Sized> Data for ::std::rc::Rc<D> {
@@ -282,7 +265,6 @@ impl<D: Data + ?Sized> Data for ::std::rc::Rc<D> {
         (**self).get_id()
     }
 }
-impl<D: Primitive + ?Sized> Primitive for ::std::rc::Rc<D> {}
 
 impl<K, V, S: ::std::hash::BuildHasher> Data for HashMap<K, V, S>
 where
@@ -297,14 +279,6 @@ where
         builder.end()
     }
 }
-impl<K, V, S: ::std::hash::BuildHasher> Primitive for HashMap<K, V, S>
-where
-    K: ToOwned + 'static,
-    K::Owned: Primitive,
-    V: ToOwned + 'static,
-    V::Owned: Primitive,
-{
-}
 
 impl<T> Data for Vec<T>
 where
@@ -316,12 +290,6 @@ where
         builder.extend(self.iter().map(::std::borrow::ToOwned::to_owned))?;
         builder.end()
     }
-}
-impl<T> Primitive for Vec<T>
-where
-    T: ToOwned + 'static,
-    T::Owned: Primitive,
-{
 }
 
 #[cfg(test)]

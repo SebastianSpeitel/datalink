@@ -1,9 +1,8 @@
-use crate::data::{Data, Primitive};
+use crate::data::Data;
 use crate::link_builder::{LinkBuilder, LinkBuilderError as LBE};
 use crate::value::ValueBuiler;
 
 impl Data for () {}
-impl Primitive for () {}
 
 impl Data for bool {
     #[inline]
@@ -11,7 +10,6 @@ impl Data for bool {
         value.bool(*self);
     }
 }
-impl Primitive for bool {}
 
 impl Data for u8 {
     #[inline]
@@ -19,7 +17,6 @@ impl Data for u8 {
         value.u8(*self);
     }
 }
-impl Primitive for u8 {}
 
 impl Data for i8 {
     #[inline]
@@ -27,7 +24,6 @@ impl Data for i8 {
         value.i8(*self);
     }
 }
-impl Primitive for i8 {}
 
 impl Data for u16 {
     #[inline]
@@ -35,7 +31,6 @@ impl Data for u16 {
         value.u16(*self);
     }
 }
-impl Primitive for u16 {}
 
 impl Data for i16 {
     #[inline]
@@ -43,7 +38,6 @@ impl Data for i16 {
         value.i16(*self);
     }
 }
-impl Primitive for i16 {}
 
 impl Data for u32 {
     #[inline]
@@ -51,7 +45,6 @@ impl Data for u32 {
         value.u32(*self);
     }
 }
-impl Primitive for u32 {}
 
 impl Data for i32 {
     #[inline]
@@ -59,7 +52,6 @@ impl Data for i32 {
         value.i32(*self);
     }
 }
-impl Primitive for i32 {}
 
 impl Data for u64 {
     #[inline]
@@ -67,7 +59,6 @@ impl Data for u64 {
         value.u64(*self);
     }
 }
-impl Primitive for u64 {}
 
 impl Data for i64 {
     #[inline]
@@ -75,7 +66,6 @@ impl Data for i64 {
         value.i64(*self);
     }
 }
-impl Primitive for i64 {}
 
 impl Data for u128 {
     #[inline]
@@ -83,7 +73,6 @@ impl Data for u128 {
         value.u128(*self);
     }
 }
-impl Primitive for u128 {}
 
 impl Data for i128 {
     #[inline]
@@ -91,7 +80,6 @@ impl Data for i128 {
         value.i128(*self);
     }
 }
-impl Primitive for i128 {}
 
 impl Data for f32 {
     #[inline]
@@ -99,7 +87,6 @@ impl Data for f32 {
         value.f32(*self);
     }
 }
-impl Primitive for f32 {}
 
 impl Data for usize {
     #[allow(clippy::cast_possible_truncation)]
@@ -114,7 +101,6 @@ impl Data for usize {
         }
     }
 }
-impl Primitive for usize {}
 
 impl Data for isize {
     #[allow(clippy::cast_possible_truncation)]
@@ -129,7 +115,6 @@ impl Data for isize {
         }
     }
 }
-impl Primitive for isize {}
 
 impl Data for f64 {
     #[inline]
@@ -137,7 +122,6 @@ impl Data for f64 {
         value.f64(*self);
     }
 }
-impl Primitive for f64 {}
 
 mod num {
     use super::*;
@@ -149,7 +133,6 @@ mod num {
             value.u8(self.get());
         }
     }
-    impl Primitive for num::NonZeroU8 {}
 
     impl Data for num::NonZeroI8 {
         #[inline]
@@ -157,7 +140,6 @@ mod num {
             value.i8(self.get());
         }
     }
-    impl Primitive for num::NonZeroI8 {}
 
     impl Data for num::NonZeroU16 {
         #[inline]
@@ -165,7 +147,6 @@ mod num {
             value.u16(self.get());
         }
     }
-    impl Primitive for num::NonZeroU16 {}
 
     impl Data for num::NonZeroI16 {
         #[inline]
@@ -173,7 +154,6 @@ mod num {
             value.i16(self.get());
         }
     }
-    impl Primitive for num::NonZeroI16 {}
 
     impl Data for num::NonZeroU32 {
         #[inline]
@@ -181,7 +161,6 @@ mod num {
             value.u32(self.get());
         }
     }
-    impl Primitive for num::NonZeroU32 {}
 
     impl Data for num::NonZeroI32 {
         #[inline]
@@ -189,7 +168,6 @@ mod num {
             value.i32(self.get());
         }
     }
-    impl Primitive for num::NonZeroI32 {}
 
     impl Data for num::NonZeroU64 {
         #[inline]
@@ -197,7 +175,6 @@ mod num {
             value.u64(self.get());
         }
     }
-    impl Primitive for num::NonZeroU64 {}
 
     impl Data for num::NonZeroI64 {
         #[inline]
@@ -205,7 +182,6 @@ mod num {
             value.i64(self.get());
         }
     }
-    impl Primitive for num::NonZeroI64 {}
 
     impl Data for num::NonZeroU128 {
         #[inline]
@@ -213,7 +189,6 @@ mod num {
             value.u128(self.get());
         }
     }
-    impl Primitive for num::NonZeroU128 {}
 
     impl Data for num::NonZeroI128 {
         #[inline]
@@ -221,10 +196,9 @@ mod num {
             value.i128(self.get());
         }
     }
-    impl Primitive for num::NonZeroI128 {}
 }
 
-impl<D: Primitive> Data for Option<D> {
+impl<D: Data> Data for Option<D> {
     #[inline]
     fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
         match self {

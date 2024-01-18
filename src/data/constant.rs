@@ -1,5 +1,5 @@
 use crate::data::unique::Unique;
-use crate::data::{format, Data, DataExt, Primitive};
+use crate::data::{format, Data, DataExt};
 use crate::id::ID;
 use crate::link_builder::{LinkBuilder, LinkBuilderError as LBE};
 use crate::value::ValueBuiler;
@@ -92,7 +92,6 @@ impl<const I: u128, D: Data + ?Sized> Data for Const<I, D> {
         std::num::NonZeroU128::new(I).map(ID::new)
     }
 }
-impl<const I: u128, D: Data + ?Sized> Primitive for Const<I, D> where D: Primitive {}
 impl<const I: u128, D: Data + ?Sized> Unique for Const<I, D> {
     #[inline]
     fn id(&self) -> ID {

@@ -96,9 +96,6 @@ impl Debug for dyn Data + Sync + Send {
     }
 }
 
-/// Marker trait to automatically implement `Data` for containers of this type
-pub trait Primitive: Data {}
-
 #[cfg(test)]
 mod tests {
     use super::*;
