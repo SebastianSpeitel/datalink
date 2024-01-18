@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 use std::marker::PhantomData;
 
-use crate::data::{format, Data, DataExt, Primitive};
+use crate::data::{format, Data, DataExt};
 use crate::id::ID;
 use crate::link_builder::{LinkBuilder, LinkBuilderError as LBE};
 use crate::value::ValueBuiler;
@@ -111,7 +111,6 @@ impl<D: Data + ?Sized, T: Borrow<D>> Data for AlwaysUnique<D, T> {
         self.id().into()
     }
 }
-impl<D: Primitive + ?Sized, T: Borrow<D>> Primitive for AlwaysUnique<D, T> {}
 impl<D: Data + ?Sized, T: Borrow<D>> Unique for AlwaysUnique<D, T> {
     #[inline]
     fn id(&self) -> ID {
