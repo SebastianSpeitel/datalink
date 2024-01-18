@@ -41,7 +41,7 @@ pub trait Links {
 
 pub trait LinksExt: Links {
     #[inline]
-    fn push(&mut self, link: impl Link) -> Result<(), LinkError> {
+    fn push_link(&mut self, link: impl Link) -> Result<(), LinkError> {
         link.build_into(self)
     }
 
