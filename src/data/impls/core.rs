@@ -1,5 +1,5 @@
 use crate::data::Data;
-use crate::link_builder::{LinkBuilder, LinkBuilderError as LBE};
+use crate::links::{LinkError, Links};
 use crate::value::ValueBuiler;
 
 impl Data for () {}
@@ -198,6 +198,7 @@ mod num {
     }
 }
 
+#[warn(clippy::missing_trait_methods)]
 impl<D: Data> Data for Option<D> {
     #[inline]
     fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
@@ -208,10 +209,30 @@ impl<D: Data> Data for Option<D> {
     }
 
     #[inline]
-    fn provide_links(&self, builder: &mut dyn LinkBuilder) -> Result<(), LBE> {
+    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
         match self {
-            Some(data) => data.provide_links(builder),
-            None => builder.end(),
+            Some(data) => data.provide_links(links),
+            None => Ok(()),
+        }
+    }
+
+    #[inline]
+    fn query_links(
+        &self,
+        links: &mut dyn Links,
+        query: &crate::query::Query,
+    ) -> Result<(), LinkError> {
+        match self {
+            Some(data) => data.query_links(links, query),
+            None => Ok(()),
+        }
+    }
+
+    #[inline]
+    fn get_id(&self) -> Option<crate::id::ID> {
+        match self {
+            Some(d) => d.get_id(),
+            None => None,
         }
     }
 }

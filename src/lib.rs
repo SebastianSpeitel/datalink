@@ -9,7 +9,7 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod data;
-pub mod link_builder;
+pub mod links;
 pub mod query;
 pub mod value;
 #[cfg(feature = "well_known")]

@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use crate::{
-    link_builder::{LinkBuilder, LinkBuilderError},
+    links::{LinkError, Links},
     value::ValueBuiler,
 };
 
@@ -33,23 +33,24 @@ pub trait Data {
     #[inline]
     fn provide_value<'d>(&'d self, builder: &mut dyn ValueBuiler<'d>) {}
 
+    #[allow(unused_variables)]
     #[inline]
-    fn provide_links(&self, builder: &mut dyn LinkBuilder) -> Result<(), LinkBuilderError> {
-        builder.end()
+    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
+        Ok(())
     }
 
     #[allow(unused_variables)]
     #[inline]
     fn query_links(
         &self,
-        builder: &mut dyn LinkBuilder,
+        links: &mut dyn Links,
         query: &crate::query::Query,
-    ) -> Result<(), LinkBuilderError> {
+    ) -> Result<(), LinkError> {
         use crate::query::LinkSelector;
         match query.selector() {
-            LinkSelector::None => builder.end(),
-            LinkSelector::Any => self.provide_links(builder),
-            _ => Err(LinkBuilderError::UnsupportedQuery),
+            LinkSelector::None => Ok(()),
+            LinkSelector::Any => self.provide_links(links),
+            _ => Err(LinkError::UnsupportedQuery),
         }
     }
 

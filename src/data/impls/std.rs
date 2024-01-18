@@ -2,7 +2,7 @@ use ::std::{borrow::Cow, collections::HashMap};
 
 use crate::data::Data;
 use crate::id::ID;
-use crate::link_builder::{LinkBuilder, LinkBuilderError as LBE, LinkBuilderExt};
+use crate::links::{LinkError, Links, LinksExt};
 use crate::value::ValueBuiler;
 
 #[cfg(feature = "unique")]
@@ -143,10 +143,10 @@ mod net {
         }
 
         #[inline]
-        fn provide_links(&self, builder: &mut dyn LinkBuilder) -> Result<(), LBE> {
+        fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
             match self {
-                net::IpAddr::V4(ip) => ip.provide_links(builder),
-                net::IpAddr::V6(ip) => ip.provide_links(builder),
+                net::IpAddr::V4(ip) => ip.provide_links(links),
+                net::IpAddr::V6(ip) => ip.provide_links(links),
             }
         }
     }
@@ -158,16 +158,11 @@ mod net {
         }
 
         #[inline]
-        fn provide_links(&self, builder: &mut dyn LinkBuilder) -> Result<(), LBE> {
-            builder.set_key(Box::new(IP_KEY));
-            builder.set_target(Box::new(self.ip().to_owned()));
-            builder.build()?;
+        fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
+            links.push_keyed(Box::new(self.ip().to_owned()), Box::new(IP_KEY))?;
+            links.push_keyed(Box::new(self.port()), Box::new(PORT_KEY))?;
 
-            builder.set_key(Box::new(PORT_KEY));
-            builder.set_target(Box::new(self.port()));
-            builder.build()?;
-
-            builder.end()
+            Ok(())
         }
     }
 
@@ -178,16 +173,11 @@ mod net {
         }
 
         #[inline]
-        fn provide_links(&self, builder: &mut dyn LinkBuilder) -> Result<(), LBE> {
-            builder.set_key(Box::new(IP_KEY));
-            builder.set_target(Box::new(self.ip().to_owned()));
-            builder.build()?;
+        fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
+            links.push_keyed(Box::new(self.ip().to_owned()), Box::new(IP_KEY))?;
+            links.push_keyed(Box::new(self.port()), Box::new(PORT_KEY))?;
 
-            builder.set_key(Box::new(PORT_KEY));
-            builder.set_target(Box::new(self.port()));
-            builder.build()?;
-
-            builder.end()
+            Ok(())
         }
     }
 
@@ -201,10 +191,10 @@ mod net {
         }
 
         #[inline]
-        fn provide_links(&self, builder: &mut dyn LinkBuilder) -> Result<(), LBE> {
+        fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
             match self {
-                net::SocketAddr::V4(addr) => addr.provide_links(builder),
-                net::SocketAddr::V6(addr) => addr.provide_links(builder),
+                net::SocketAddr::V4(addr) => addr.provide_links(links),
+                net::SocketAddr::V6(addr) => addr.provide_links(links),
             }
         }
     }
@@ -218,17 +208,17 @@ impl<D: Data + ?Sized> Data for ::std::sync::Arc<D> {
     }
 
     #[inline]
-    fn provide_links(&self, builder: &mut dyn LinkBuilder) -> Result<(), LBE> {
-        (**self).provide_links(builder)
+    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
+        (**self).provide_links(links)
     }
 
     #[inline]
     fn query_links(
         &self,
-        builder: &mut dyn LinkBuilder,
+        links: &mut dyn Links,
         query: &crate::query::Query,
-    ) -> Result<(), LBE> {
-        (**self).query_links(builder, query)
+    ) -> Result<(), LinkError> {
+        (**self).query_links(links, query)
     }
 
     #[inline]
@@ -246,17 +236,17 @@ impl<D: Data + ?Sized> Data for ::std::rc::Rc<D> {
     }
 
     #[inline]
-    fn provide_links(&self, builder: &mut dyn LinkBuilder) -> Result<(), LBE> {
-        (**self).provide_links(builder)
+    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
+        (**self).provide_links(links)
     }
 
     #[inline]
     fn query_links(
         &self,
-        builder: &mut dyn LinkBuilder,
+        links: &mut dyn Links,
         query: &crate::query::Query,
-    ) -> Result<(), LBE> {
-        (**self).query_links(builder, query)
+    ) -> Result<(), LinkError> {
+        (**self).query_links(links, query)
     }
 
     #[inline]
@@ -274,9 +264,8 @@ where
     V::Owned: Data,
 {
     #[inline]
-    fn provide_links(&self, builder: &mut dyn LinkBuilder) -> Result<(), LBE> {
-        builder.extend(self.iter().map(|(k, t)| (k.to_owned(), t.to_owned())))?;
-        builder.end()
+    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
+        links.extend(self.iter().map(|(k, t)| (k.to_owned(), t.to_owned())))
     }
 }
 
@@ -286,9 +275,8 @@ where
     T::Owned: Data,
 {
     #[inline]
-    fn provide_links(&self, builder: &mut dyn LinkBuilder) -> Result<(), LBE> {
-        builder.extend(self.iter().map(::std::borrow::ToOwned::to_owned))?;
-        builder.end()
+    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
+        links.extend(self.iter().map(::std::borrow::ToOwned::to_owned))
     }
 }
 

@@ -2,7 +2,7 @@
 use std::borrow::Cow;
 
 use crate::data::{format, BoxedData, Data};
-use crate::link_builder::{LinkBuilder, LinkBuilderError as LBE};
+use crate::links::{LinkError, Links};
 use crate::query::Query;
 
 pub trait DataExt: Data {
@@ -129,94 +129,13 @@ pub trait DataExt: Data {
     }
 
     #[inline]
-    fn query(&self, query: &Query) -> Result<Vec<(Option<BoxedData>, BoxedData)>, LBE> {
-        #[derive(Default)]
-        struct Builder {
-            links: Vec<(Option<BoxedData>, BoxedData)>,
-            next_key: Option<BoxedData>,
-            next_target: Option<BoxedData>,
-        }
-        impl LinkBuilder for Builder {
-            fn set_key(&mut self, key: BoxedData) {
-                self.next_key.replace(key);
-            }
-            fn set_target(&mut self, target: BoxedData) {
-                self.next_target.replace(target);
-            }
-            fn build(&mut self) -> Result<(), LBE> {
-                let link = (
-                    self.next_key.take(),
-                    self.next_target.take().ok_or(LBE::MissingTarget)?,
-                );
-                self.links.push(link);
-                Ok(())
-            }
-            fn end(&mut self) -> Result<(), LBE> {
-                debug_assert!(self.next_key.is_none());
-                debug_assert!(self.next_target.is_none());
-                Ok(())
-            }
-        }
+    fn query(&self, query: &Query) -> Result<Vec<(Option<BoxedData>, BoxedData)>, LinkError> {
+        let mut links = Vec::new();
 
-        let mut builder = Builder::default();
-        self.query_links(&mut builder, query)?;
+        self.query_links(&mut links, query)?;
 
-        Ok(builder.links)
+        Ok(links)
     }
-
-    // #[inline]
-    // #[must_use]
-    // fn iter_links(&self) -> std::sync::mpsc::Receiver<(Option<BoxedData>, BoxedData)> {
-    //     use crate::link_builder::LinkBuilderError as LBE;
-
-    //     struct SyncBuilder {
-    //         next_key: Option<BoxedData>,
-    //         next_target: Option<BoxedData>,
-    //         sender: Option<std::sync::mpsc::SyncSender<(Option<BoxedData>, BoxedData)>>,
-    //     }
-
-    //     impl LinkBuilder for SyncBuilder {
-    //         fn set_key(&mut self, key: BoxedData) {
-    //             self.next_key.replace(key);
-    //         }
-    //         fn set_target(&mut self, target: BoxedData) {
-    //             self.next_target.replace(target);
-    //         }
-    //         fn build(&mut self) -> Result<(), LBE> {
-    //             let key = self.next_key.take();
-    //             let target = self.next_target.take();
-
-    //             let target = target.ok_or(LBE::MissingTarget)?;
-
-    //             let sender = self.sender.as_mut().ok_or(LBE::AlreadyEnded)?;
-
-    //             sender
-    //                 .send((key, target))
-    //                 .map_err(|_| LBE::Other("send failed"))?;
-
-    //             Ok(())
-    //         }
-
-    //         fn end(&mut self) -> Result<(), LBE> {
-    //             if self.sender.take().is_none() {
-    //                 return Err(LBE::AlreadyEnded);
-    //             }
-    //             Ok(())
-    //         }
-    //     }
-
-    //     let (sender, receiver) = std::sync::mpsc::sync_channel(0);
-
-    //     let mut builder = SyncBuilder {
-    //         next_key: None,
-    //         next_target: None,
-    //         sender: Some(sender),
-    //     };
-
-    //     std::thread::spawn(move || self.provide_links(&mut builder));
-
-    //     receiver
-    // }
 
     /// Collects all links without a key into a vec.
     ///
@@ -236,49 +155,33 @@ pub trait DataExt: Data {
     /// ```
     #[inline]
     #[cfg(feature = "std")]
-    fn as_list(&self) -> Result<Vec<BoxedData>, LBE> {
+    fn as_list(&self) -> Result<Vec<BoxedData>, LinkError> {
         #[derive(Default)]
-        struct Builder {
-            has_key: bool,
-            next: Option<BoxedData>,
-            items: Vec<BoxedData>,
-        }
+        struct ListLinks(Vec<BoxedData>);
 
-        impl LinkBuilder for Builder {
-            fn set_key(&mut self, _key: BoxedData) {
-                self.has_key = true;
-            }
-            fn set_target(&mut self, target: BoxedData) {
-                self.next.replace(target);
-            }
-            fn build(&mut self) -> Result<(), LBE> {
-                let has_key = std::mem::take(&mut self.has_key);
-                let item = self.next.take();
-
-                match (item, has_key) {
-                    (Some(item), false) => {
-                        self.items.push(item);
-                    }
-                    (_, true) => {
-                        // if link has a key it is not a list item but a map item
-                    }
-                    (None, _) => {
-                        return Err(LBE::MissingTarget);
-                    }
+        impl Links for ListLinks {
+            #[inline]
+            fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result<(), LinkError> {
+                if key.is_none() {
+                    self.0.push(target);
                 }
-
                 Ok(())
             }
-            fn end(&mut self) -> Result<(), LBE> {
-                debug_assert!(self.next.is_none());
+            #[inline]
+            fn push_unkeyed(&mut self, target: BoxedData) -> Result<(), LinkError> {
+                self.0.push(target);
+                Ok(())
+            }
+            #[inline]
+            fn push_keyed(&mut self, _target: BoxedData, _key: BoxedData) -> Result<(), LinkError> {
                 Ok(())
             }
         }
 
-        let mut builder = Builder::default();
-        self.provide_links(&mut builder)?;
+        let mut links = ListLinks::default();
+        self.provide_links(&mut links)?;
 
-        Ok(builder.items)
+        Ok(links.0)
     }
 
     /// Collects all links with a key into a vec.
@@ -301,49 +204,30 @@ pub trait DataExt: Data {
     /// ```
     #[inline]
     #[cfg(feature = "std")]
-    fn as_items(&self) -> Result<Vec<(BoxedData, BoxedData)>, LBE> {
+    fn as_items(&self) -> Result<Vec<(BoxedData, BoxedData)>, LinkError> {
         #[derive(Default)]
-        struct Builder {
-            next_key: Option<BoxedData>,
-            next_target: Option<BoxedData>,
-            items: Vec<(BoxedData, BoxedData)>,
-        }
+        struct ItemLinks(Vec<(BoxedData, BoxedData)>);
 
-        impl LinkBuilder for Builder {
-            fn set_key(&mut self, key: BoxedData) {
-                self.next_key.replace(key);
-            }
-            fn set_target(&mut self, target: BoxedData) {
-                self.next_target.replace(target);
-            }
-            fn build(&mut self) -> Result<(), LBE> {
-                let key = self.next_key.take();
-                let target = self.next_target.take();
-
-                match (key, target) {
-                    (Some(key), Some(target)) => {
-                        self.items.push((key, target));
-                    }
-                    (_, Some(..)) => {
-                        // if link has no key it is not a map item but a list item
-                    }
-                    (_, None) => {
-                        return Err(LBE::MissingTarget);
-                    }
+        impl Links for ItemLinks {
+            fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result<(), LinkError> {
+                if let Some(key) = key {
+                    self.0.push((key, target));
                 }
                 Ok(())
             }
-            fn end(&mut self) -> Result<(), LBE> {
-                debug_assert!(self.next_key.is_none());
-                debug_assert!(self.next_target.is_none());
+            fn push_keyed(&mut self, target: BoxedData, key: BoxedData) -> Result<(), LinkError> {
+                self.0.push((key, target));
+                Ok(())
+            }
+            fn push_unkeyed(&mut self, _target: BoxedData) -> Result<(), LinkError> {
                 Ok(())
             }
         }
 
-        let mut builder = Builder::default();
-        self.provide_links(&mut builder)?;
+        let mut links = ItemLinks::default();
+        self.provide_links(&mut links)?;
 
-        Ok(builder.items)
+        Ok(links.0)
     }
 
     #[allow(unused_variables)]

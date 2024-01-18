@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::data::{BoxedData, Data};
-use crate::link_builder::{LinkBuilder, LinkBuilderError as LBE};
+use crate::links::{LinkError, Links};
 use crate::value::ValueBuiler;
 
 #[derive(Default, Debug)]
@@ -121,7 +121,7 @@ impl<const SERIAL: bool, const MAX_DEPTH: u16> DataFormatter for FORMAT<SERIAL, 
             return;
         }
 
-        let links = recursive::RecursiveLinks::<Self, _>::new(data, state.saturating_sub(1));
+        let links = recursive::RecursiveFmt::<Self, _>::new(data, state.saturating_sub(1));
         f.field("links", &links);
     }
 }
@@ -193,7 +193,7 @@ impl<const SERIAL: bool, const MAX_DEPTH: u16> DataFormatter for FORMAT<SERIAL, 
             return;
         }
 
-        let links = recursive::RecursiveLinks::<Self, _>::new(data, state - 1);
+        let links = recursive::RecursiveFmt::<Self, _>::new(data, state - 1);
         f.field("links", &links);
     }
 }
@@ -243,13 +243,13 @@ impl<F: DataFormatter, K: Data, T: Data> Debug for FormattableLink<F, K, T> {
 mod recursive {
     use super::*;
 
-    pub(super) struct RecursiveLinks<'d, F: DataFormatter, D: Data + ?Sized> {
+    pub(super) struct RecursiveFmt<'d, F: DataFormatter, D: Data + ?Sized> {
         data: &'d D,
         state: F::State,
         phantom: PhantomData<F>,
     }
 
-    impl<'d, F: DataFormatter, D: Data + ?Sized> RecursiveLinks<'d, F, D> {
+    impl<'d, F: DataFormatter, D: Data + ?Sized> RecursiveFmt<'d, F, D> {
         #[inline]
         pub(super) fn new(data: &'d D, state: F::State) -> Self {
             Self {
@@ -260,42 +260,29 @@ mod recursive {
         }
     }
 
-    impl<'d, F: DataFormatter, D: Data + ?Sized> Debug for RecursiveLinks<'d, F, D> {
+    impl<'d, F: DataFormatter, D: Data + ?Sized> Debug for RecursiveFmt<'d, F, D> {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             let fmt_set = f.debug_set();
-            let mut builder = RecursiveLinkBuilder::<F> {
+            let mut links = RecursiveLinks::<F> {
                 fmt_set,
                 state: self.state,
-                next_key: None,
-                next_target: None,
                 phantom: PhantomData,
             };
             self.data
-                .provide_links(&mut builder)
+                .provide_links(&mut links)
                 .map_err(|_| std::fmt::Error)?;
             Ok(())
         }
     }
 
-    struct RecursiveLinkBuilder<'a, 'b, F: DataFormatter> {
+    struct RecursiveLinks<'a, 'b, F: DataFormatter> {
         fmt_set: fmt::DebugSet<'a, 'b>,
         state: F::State,
-        next_key: Option<BoxedData>,
-        next_target: Option<BoxedData>,
         phantom: PhantomData<F>,
     }
 
-    impl<F: DataFormatter> LinkBuilder for RecursiveLinkBuilder<'_, '_, F> {
-        fn set_key(&mut self, key: BoxedData) {
-            self.next_key.replace(key);
-        }
-        fn set_target(&mut self, target: BoxedData) {
-            self.next_target.replace(target);
-        }
-        fn build(&mut self) -> Result<(), LBE> {
-            let key = self.next_key.take();
-            let target = self.next_target.take().ok_or(LBE::MissingTarget)?;
-
+    impl<F: DataFormatter> Links for RecursiveLinks<'_, '_, F> {
+        fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result<(), LinkError> {
             let link = FormattableLink::<F, _, _> {
                 key,
                 target,
@@ -304,14 +291,6 @@ mod recursive {
             };
             self.fmt_set.entry(&link);
 
-            Ok(())
-        }
-
-        fn end(&mut self) -> Result<(), LBE> {
-            debug_assert!(self.next_key.is_none());
-            debug_assert!(self.next_target.is_none());
-
-            self.fmt_set.finish()?;
             Ok(())
         }
     }
@@ -331,12 +310,12 @@ mod serial {
     impl<'d, F: DataFormatter, D: Data + ?Sized> SerialLinks<'d, F, D> {
         #[inline]
         pub(super) fn new(data: &'d D, state: F::State) -> Self {
-            let mut builder = SerialLinkBuilder::default();
+            let mut links = Vec::new();
             // TODO: do something about an error here
-            let _ = data.provide_links(&mut builder);
+            let _ = data.provide_links(&mut links);
             Self {
                 state,
-                links: builder.links,
+                links,
                 formatter: PhantomData,
                 data: PhantomData,
             }
@@ -361,36 +340,6 @@ mod serial {
                 fmt_set.entry(&link);
             }
             fmt_set.finish()
-        }
-    }
-
-    #[derive(Default)]
-    struct SerialLinkBuilder {
-        links: Vec<(Option<BoxedData>, BoxedData)>,
-        next_key: Option<BoxedData>,
-        next_target: Option<BoxedData>,
-    }
-
-    impl LinkBuilder for SerialLinkBuilder {
-        fn set_key(&mut self, key: BoxedData) {
-            self.next_key.replace(key);
-        }
-        fn set_target(&mut self, target: BoxedData) {
-            self.next_target.replace(target);
-        }
-        fn build(&mut self) -> Result<(), LBE> {
-            let key = self.next_key.take();
-            let target = self.next_target.take().ok_or(LBE::MissingTarget)?;
-
-            self.links.push((key, target));
-
-            Ok(())
-        }
-
-        fn end(&mut self) -> Result<(), LBE> {
-            debug_assert!(self.next_key.is_none());
-            debug_assert!(self.next_target.is_none());
-            Ok(())
         }
     }
 }

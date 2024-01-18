@@ -2,7 +2,7 @@ mod selectors;
 pub use selectors::*;
 
 use crate::data::BoxedData;
-use crate::link_builder::Link;
+use crate::links::Link;
 
 pub mod prelude {
     pub use super::DataSelector as Data;
