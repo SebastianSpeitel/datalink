@@ -1,6 +1,6 @@
 use crate::data::Data;
 use crate::id::ID;
-use crate::link_builder::{LinkBuilder, LinkBuilderError as LBE};
+use crate::links::{LinkError, Links};
 use crate::value::ValueBuiler;
 
 mod core;
@@ -18,16 +18,16 @@ impl Data for &dyn Data {
         (**self).provide_value(builder)
     }
     #[inline]
-    fn provide_links(&self, builder: &mut dyn LinkBuilder) -> Result<(), LBE> {
-        (**self).provide_links(builder)
+    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
+        (**self).provide_links(links)
     }
     #[inline]
     fn query_links(
         &self,
-        builder: &mut dyn LinkBuilder,
+        links: &mut dyn Links,
         query: &crate::query::Query,
-    ) -> Result<(), LBE> {
-        (**self).query_links(builder, query)
+    ) -> Result<(), LinkError> {
+        (**self).query_links(links, query)
     }
     #[inline]
     fn get_id(&self) -> Option<ID> {
@@ -42,16 +42,16 @@ impl<D: Data + ?Sized> Data for Box<D> {
         (**self).provide_value(builder)
     }
     #[inline]
-    fn provide_links(&self, builder: &mut dyn LinkBuilder) -> Result<(), LBE> {
-        (**self).provide_links(builder)
+    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
+        (**self).provide_links(links)
     }
     #[inline]
     fn query_links(
         &self,
-        builder: &mut dyn LinkBuilder,
+        links: &mut dyn Links,
         query: &crate::query::Query,
-    ) -> Result<(), LBE> {
-        (**self).query_links(builder, query)
+    ) -> Result<(), LinkError> {
+        (**self).query_links(links, query)
     }
     #[inline]
     fn get_id(&self) -> Option<ID> {

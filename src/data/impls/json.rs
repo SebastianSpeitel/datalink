@@ -2,7 +2,7 @@ use serde_json::{Map, Number, Value as Val};
 
 use crate::data::Data;
 use crate::id::ID;
-use crate::link_builder::{LinkBuilder, LinkBuilderError as LBE, LinkBuilderExt};
+use crate::links::{LinkError, Links, LinksExt};
 use crate::value::ValueBuiler;
 
 impl Data for Val {
@@ -23,11 +23,11 @@ impl Data for Val {
     }
 
     #[inline]
-    fn provide_links(&self, builder: &mut dyn LinkBuilder) -> Result<(), LBE> {
+    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
         match self {
-            Val::Array(v) => v.provide_links(builder),
-            Val::Object(m) => m.provide_links(builder),
-            _ => builder.end(),
+            Val::Array(v) => v.provide_links(links),
+            Val::Object(m) => m.provide_links(links),
+            _ => Ok(()),
         }
     }
 
@@ -42,8 +42,8 @@ impl Data for Val {
 
 impl Data for Map<String, Val> {
     #[inline]
-    fn provide_links(&self, builder: &mut dyn LinkBuilder) -> Result<(), LBE> {
-        builder.extend(self.iter().map(|(k, v)| (k.to_owned(), v.to_owned())))
+    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
+        links.extend(self.iter().map(|(k, v)| (k.to_owned(), v.to_owned())))
     }
 }
 

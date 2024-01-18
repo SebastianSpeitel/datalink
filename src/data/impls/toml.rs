@@ -1,7 +1,7 @@
 use ::toml::{Table, Value as Val};
 
 use crate::data::Data;
-use crate::link_builder::{LinkBuilder, LinkBuilderError as LBE, LinkBuilderExt};
+use crate::links::{LinkError, Links, LinksExt};
 use crate::value::ValueBuiler;
 
 impl Data for Val {
@@ -18,19 +18,18 @@ impl Data for Val {
     }
 
     #[inline]
-    fn provide_links(&self, builder: &mut dyn LinkBuilder) -> Result<(), LBE> {
+    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
         match self {
-            Val::Table(table) => table.provide_links(builder),
-            Val::Array(array) => array.provide_links(builder),
-            _ => builder.end(),
+            Val::Table(table) => table.provide_links(links),
+            Val::Array(array) => array.provide_links(links),
+            _ => Ok(()),
         }
     }
 }
 
 impl Data for Table {
     #[inline]
-    fn provide_links(&self, builder: &mut dyn LinkBuilder) -> Result<(), LBE> {
-        builder.extend(self.iter().map(|(k, v)| (k.to_owned(), v.to_owned())))?;
-        builder.end()
+    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
+        links.extend(self.iter().map(|(k, v)| (k.to_owned(), v.to_owned())))
     }
 }

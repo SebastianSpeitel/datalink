@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 use crate::data::{format, Data, DataExt};
 use crate::id::ID;
-use crate::link_builder::{LinkBuilder, LinkBuilderError as LBE};
+use crate::links::{LinkError, Links};
 use crate::value::ValueBuiler;
 
 #[derive(Debug, thiserror::Error)]
@@ -95,16 +95,16 @@ impl<D: Data + ?Sized, T: Borrow<D>> Data for AlwaysUnique<D, T> {
         self.as_ref().provide_value(builder)
     }
     #[inline]
-    fn provide_links(&self, builder: &mut dyn LinkBuilder) -> Result<(), LBE> {
-        self.as_ref().provide_links(builder)
+    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
+        self.as_ref().provide_links(links)
     }
     #[inline]
     fn query_links(
         &self,
-        builder: &mut dyn LinkBuilder,
+        links: &mut dyn Links,
         query: &crate::query::Query,
-    ) -> Result<(), LBE> {
-        self.as_ref().query_links(builder, query)
+    ) -> Result<(), LinkError> {
+        self.as_ref().query_links(links, query)
     }
     #[inline]
     fn get_id(&self) -> Option<ID> {

@@ -1,25 +1,21 @@
 use crate::data::{BoxedData, Data};
 
 #[derive(Debug, thiserror::Error)]
-pub enum LinkBuilderError {
-    #[error("Missing target")]
-    MissingTarget,
-    #[error("Already ended")]
-    AlreadyEnded,
+pub enum LinkError {
     #[error("Unsupported query")]
     UnsupportedQuery,
     #[error(transparent)]
     Other(#[from] Box<dyn std::error::Error + Send + Sync + 'static>),
 }
 
-impl From<std::fmt::Error> for LinkBuilderError {
+impl From<std::fmt::Error> for LinkError {
     #[inline]
     fn from(err: std::fmt::Error) -> Self {
         Self::Other(Box::new(err))
     }
 }
 
-impl LinkBuilderError {
+impl LinkError {
     #[inline]
     pub fn other<E>(err: E) -> Self
     where
@@ -29,27 +25,28 @@ impl LinkBuilderError {
     }
 }
 
-pub trait LinkBuilder {
-    fn set_key(&mut self, key: BoxedData);
+pub trait Links {
+    fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result<(), LinkError>;
 
-    fn set_target(&mut self, target: BoxedData);
+    #[inline]
+    fn push_keyed(&mut self, target: BoxedData, key: BoxedData) -> Result<(), LinkError> {
+        self.push(target, Some(key))
+    }
 
-    fn build(&mut self) -> Result<(), LinkBuilderError>;
-
-    fn end(&mut self) -> Result<(), LinkBuilderError>;
+    #[inline]
+    fn push_unkeyed(&mut self, target: BoxedData) -> Result<(), LinkError> {
+        self.push(target, None)
+    }
 }
 
-pub trait LinkBuilderExt: LinkBuilder {
+pub trait LinksExt: Links {
     #[inline]
-    fn push(&mut self, link: impl Link) -> Result<(), LinkBuilderError> {
+    fn push(&mut self, link: impl Link) -> Result<(), LinkError> {
         link.build_into(self)
     }
 
     #[inline]
-    fn extend(
-        &mut self,
-        links: impl IntoIterator<Item = impl Link>,
-    ) -> Result<(), LinkBuilderError> {
+    fn extend(&mut self, links: impl IntoIterator<Item = impl Link>) -> Result<(), LinkError> {
         for link in links {
             link.build_into(self)?;
         }
@@ -57,13 +54,21 @@ pub trait LinkBuilderExt: LinkBuilder {
     }
 }
 
-impl<T: LinkBuilder + ?Sized> LinkBuilderExt for T {}
+impl<T: Links + ?Sized> LinksExt for T {}
+
+impl Links for Vec<(Option<BoxedData>, BoxedData)> {
+    #[inline]
+    fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result<(), LinkError> {
+        self.push((key, target));
+        Ok(())
+    }
+}
 
 pub trait Link {
     fn key(&self) -> Option<&dyn Data>;
     fn target(&self) -> &dyn Data;
 
-    fn build_into(self, builder: &mut (impl LinkBuilder + ?Sized)) -> Result<(), LinkBuilderError>;
+    fn build_into(self, builder: &mut (impl Links + ?Sized)) -> Result<(), LinkError>;
 }
 
 impl<T> Link for T
@@ -81,9 +86,8 @@ where
     }
 
     #[inline]
-    fn build_into(self, builder: &mut (impl LinkBuilder + ?Sized)) -> Result<(), LinkBuilderError> {
-        builder.set_target(Box::new(self));
-        builder.build()
+    fn build_into(self, builder: &mut (impl Links + ?Sized)) -> Result<(), LinkError> {
+        builder.push_unkeyed(Box::new(self))
     }
 }
 
@@ -103,10 +107,8 @@ where
     }
 
     #[inline]
-    fn build_into(self, builder: &mut (impl LinkBuilder + ?Sized)) -> Result<(), LinkBuilderError> {
-        builder.set_key(Box::new(self.0));
-        builder.set_target(Box::new(self.1));
-        builder.build()
+    fn build_into(self, builder: &mut (impl Links + ?Sized)) -> Result<(), LinkError> {
+        builder.push_keyed(Box::new(self.1), Box::new(self.0))
     }
 }
 
@@ -116,6 +118,6 @@ mod tests {
 
     #[test]
     fn object_safety() {
-        fn _f(_l: &dyn LinkBuilder) {}
+        fn _f(_l: &dyn Links) {}
     }
 }

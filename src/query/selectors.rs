@@ -1,4 +1,4 @@
-use crate::{data::Data, id::ID, link_builder::Link};
+use crate::{data::Data, id::ID, links::Link};
 use std::ops::{BitAnd, BitOr, Not};
 
 pub trait Selector<On: ?Sized> {
