@@ -1,5 +1,15 @@
 use crate::data::{BoxedData, Data};
 
+pub mod prelude {
+    pub use super::Link;
+    pub use super::LinkError;
+    pub use super::Links;
+    pub use super::LinksExt;
+    pub use super::Result;
+}
+
+pub type Result<T = (), E = LinkError> = core::result::Result<T, E>;
+
 #[derive(Debug, thiserror::Error)]
 pub enum LinkError {
     #[error("Unsupported query")]
@@ -26,27 +36,27 @@ impl LinkError {
 }
 
 pub trait Links {
-    fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result<(), LinkError>;
+    fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result;
 
     #[inline]
-    fn push_keyed(&mut self, target: BoxedData, key: BoxedData) -> Result<(), LinkError> {
+    fn push_keyed(&mut self, target: BoxedData, key: BoxedData) -> Result {
         self.push(target, Some(key))
     }
 
     #[inline]
-    fn push_unkeyed(&mut self, target: BoxedData) -> Result<(), LinkError> {
+    fn push_unkeyed(&mut self, target: BoxedData) -> Result {
         self.push(target, None)
     }
 }
 
 pub trait LinksExt: Links {
     #[inline]
-    fn push_link(&mut self, link: impl Link) -> Result<(), LinkError> {
+    fn push_link(&mut self, link: impl Link) -> Result {
         link.build_into(self)
     }
 
     #[inline]
-    fn extend(&mut self, links: impl IntoIterator<Item = impl Link>) -> Result<(), LinkError> {
+    fn extend(&mut self, links: impl IntoIterator<Item = impl Link>) -> Result {
         for link in links {
             link.build_into(self)?;
         }
@@ -58,7 +68,7 @@ impl<T: Links + ?Sized> LinksExt for T {}
 
 impl Links for Vec<(Option<BoxedData>, BoxedData)> {
     #[inline]
-    fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result<(), LinkError> {
+    fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result {
         self.push((key, target));
         Ok(())
     }
