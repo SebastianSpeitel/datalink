@@ -68,7 +68,7 @@ pub trait Link {
     fn key(&self) -> Option<&dyn Data>;
     fn target(&self) -> &dyn Data;
 
-    fn build_into(self, builder: &mut (impl Links + ?Sized)) -> Result<(), LinkError>;
+    fn build_into(self, links: &mut (impl Links + ?Sized)) -> Result;
 }
 
 impl<T> Link for T
@@ -86,8 +86,8 @@ where
     }
 
     #[inline]
-    fn build_into(self, builder: &mut (impl Links + ?Sized)) -> Result<(), LinkError> {
-        builder.push_unkeyed(Box::new(self))
+    fn build_into(self, links: &mut (impl Links + ?Sized)) -> Result {
+        links.push_unkeyed(Box::new(self))
     }
 }
 
@@ -107,8 +107,8 @@ where
     }
 
     #[inline]
-    fn build_into(self, builder: &mut (impl Links + ?Sized)) -> Result<(), LinkError> {
-        builder.push_keyed(Box::new(self.1), Box::new(self.0))
+    fn build_into(self, links: &mut (impl Links + ?Sized)) -> Result {
+        links.push_keyed(Box::new(self.1), Box::new(self.0))
     }
 }
 
