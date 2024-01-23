@@ -1,4 +1,5 @@
 use std::borrow::Borrow;
+use std::hash::Hash;
 use std::marker::PhantomData;
 
 use crate::data::{format, Data, DataExt};
@@ -18,49 +19,44 @@ pub trait Unique: Data {
 }
 
 /// Wrapper for Data with or without an `ID` to make it always `Unique`
-pub enum AlwaysUnique<D: Data + ?Sized, T: Borrow<D>> {
-    Implicit { data: T, phantom: PhantomData<D> },
-    Explicit { data: T, id: ID },
+pub struct Fixed<D: Data + ?Sized, T: Borrow<D>> {
+    data: T,
+    id: ID,
+    pd: PhantomData<D>,
 }
 
-impl<D: Data + ?Sized, T: Borrow<D>> AlwaysUnique<D, T> {
-    /// Try to construct an implicit unique data by checking if the data provides an ID
+impl<D: Data + ?Sized, T: Borrow<D>> Fixed<D, T> {
+    /// Try to construct a Fixed by trying to get the ID from the data
     #[inline]
-    pub fn try_new_implicit(data: T) -> Result<Self, Error> {
-        if data.borrow().get_id().is_some() {
-            Ok(Self::Implicit {
-                data,
-                phantom: PhantomData,
-            })
-        } else {
-            Err(Error::MissingID)
-        }
+    pub fn try_new(data: T) -> Result<Self, Error> {
+        let id = data.borrow().get_id().ok_or(Error::MissingID)?;
+        Ok(Self {
+            data,
+            id,
+            pd: PhantomData,
+        })
     }
 
-    /// Construct an `AlwaysUnique` with the given fallback ID if the data doesn't provide one
+    /// Construct an `Fixed` with the given fallback ID if the data doesn't provide one
     #[inline]
     #[must_use]
     pub fn new(data: T, id: ID) -> Self {
-        if data.borrow().get_id().is_some() {
-            Self::Implicit {
-                data,
-                phantom: PhantomData,
-            }
-        } else {
-            Self::Explicit { data, id }
+        let id = data.borrow().get_id().unwrap_or(id);
+        Self {
+            data,
+            id,
+            pd: PhantomData,
         }
     }
 
     #[inline]
     #[must_use]
     pub fn new_with(data: T, f: impl FnOnce() -> ID) -> Self {
-        if data.borrow().get_id().is_some() {
-            Self::Implicit {
-                data,
-                phantom: PhantomData,
-            }
-        } else {
-            Self::Explicit { data, id: f() }
+        let id = data.borrow().get_id().unwrap_or_else(f);
+        Self {
+            data,
+            id,
+            pd: PhantomData,
         }
     }
 
@@ -71,25 +67,23 @@ impl<D: Data + ?Sized, T: Borrow<D>> AlwaysUnique<D, T> {
     }
 }
 
-impl<D: Data + ?Sized, T: Borrow<D>> std::fmt::Debug for AlwaysUnique<D, T> {
+impl<D: Data + ?Sized, T: Borrow<D>> std::fmt::Debug for Fixed<D, T> {
     #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.format::<format::DEBUG>().fmt(f)
     }
 }
 
-impl<D: Data + ?Sized, T: Borrow<D>> AsRef<D> for AlwaysUnique<D, T> {
+impl<D: Data + ?Sized, T: Borrow<D>> AsRef<D> for Fixed<D, T> {
     /// Returns a reference to the underlying data
     #[inline]
     fn as_ref(&self) -> &D {
-        match self {
-            Self::Implicit { data, .. } | Self::Explicit { data, .. } => data.borrow(),
-        }
+        self.data.borrow()
     }
 }
 
 #[warn(clippy::missing_trait_methods)]
-impl<D: Data + ?Sized, T: Borrow<D>> Data for AlwaysUnique<D, T> {
+impl<D: Data + ?Sized, T: Borrow<D>> Data for Fixed<D, T> {
     #[inline]
     fn provide_value<'d>(&'d self, builder: &mut dyn ValueBuiler<'d>) {
         self.as_ref().provide_value(builder)
@@ -108,65 +102,70 @@ impl<D: Data + ?Sized, T: Borrow<D>> Data for AlwaysUnique<D, T> {
     }
     #[inline]
     fn get_id(&self) -> Option<ID> {
-        self.id().into()
+        #[cfg(debug_assertions)]
+        if let Some(id) = self.as_ref().get_id() {
+            debug_assert_eq!(id, self.id);
+        }
+
+        self.id.into()
     }
 }
-impl<D: Data + ?Sized, T: Borrow<D>> Unique for AlwaysUnique<D, T> {
+impl<D: Data + ?Sized, T: Borrow<D>> Unique for Fixed<D, T> {
     #[inline]
     fn id(&self) -> ID {
-        match self {
-            AlwaysUnique::Implicit { data, .. } => {
-                let id = data.borrow().get_id();
-                match id {
-                    Some(id) => id,
-                    None => unreachable!(),
-                }
-            }
-            AlwaysUnique::Explicit { id, .. } => *id,
+        #[cfg(debug_assertions)]
+        if let Some(id) = self.as_ref().get_id() {
+            debug_assert_eq!(id, self.id);
         }
+
+        self.id
     }
 }
 
-impl<D: Data + ?Sized, T: Borrow<D>, O: Data> PartialEq<O> for AlwaysUnique<D, T> {
+impl<D: Data + ?Sized, T: Borrow<D>, O: Data> PartialEq<O> for Fixed<D, T> {
     #[inline]
     fn eq(&self, other: &O) -> bool {
-        other.get_id().is_some_and(|id| id == self.id())
+        match other.get_id() {
+            Some(id) => id == self.id,
+            None => false,
+        }
     }
 }
-impl<D: Data + ?Sized, T: Borrow<D>> Eq for AlwaysUnique<D, T> {}
+impl<D: Data + ?Sized, T: Borrow<D>> Eq for Fixed<D, T> {}
+
+impl<D: Data + ?Sized, T: Borrow<D>> Hash for Fixed<D, T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
 
 pub trait MaybeUnique: Data + Sized {
     #[inline]
-    fn try_into_unique(self) -> Result<AlwaysUnique<Self, Self>, Error> {
-        if self.get_id().is_some() {
-            Ok(AlwaysUnique::Implicit {
-                data: self,
-                phantom: PhantomData,
-            })
-        } else {
-            Err(Error::MissingID)
-        }
+    fn try_into_unique(self) -> Result<Fixed<Self, Self>, Error> {
+        Fixed::try_new(self)
     }
 
     #[inline]
     #[must_use]
-    fn into_unique(self, id: ID) -> AlwaysUnique<Self, Self> {
-        AlwaysUnique::new(self, id)
+    fn into_unique(self, id: ID) -> Fixed<Self, Self> {
+        Fixed::new(self, id)
     }
 
     #[inline]
     #[must_use]
-    fn into_unique_with(self, f: impl FnOnce() -> ID) -> AlwaysUnique<Self, Self> {
-        AlwaysUnique::new_with(self, f)
+    fn into_unique_with(self, f: impl FnOnce() -> ID) -> Fixed<Self, Self> {
+        Fixed::new_with(self, f)
     }
 
     #[cfg(feature = "random")]
     #[inline]
     #[must_use]
-    fn into_unique_random(self) -> AlwaysUnique<Self, Self> {
-        AlwaysUnique::new_random(self)
+    fn into_unique_random(self) -> Fixed<Self, Self> {
+        Fixed::new_random(self)
     }
 }
+
+/// Extension trait for `Data` to add methods for creating `Unique` data
 impl<D: Data> MaybeUnique for D {}
 
 #[cfg(test)]
@@ -176,7 +175,7 @@ mod tests {
     #[test]
     fn data_ref() {
         let data = true;
-        let res = AlwaysUnique::<bool, _>::try_new_implicit(&data);
+        let res = Fixed::<bool, _>::try_new(&data);
         assert!(res.is_err());
     }
 }
