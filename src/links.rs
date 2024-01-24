@@ -1,5 +1,7 @@
 use crate::data::{BoxedData, Data};
 
+mod impls;
+
 pub mod prelude {
     pub use super::Link;
     pub use super::LinkError;
@@ -66,17 +68,12 @@ pub trait LinksExt: Links {
 
 impl<T: Links + ?Sized> LinksExt for T {}
 
-impl Links for Vec<(Option<BoxedData>, BoxedData)> {
-    #[inline]
-    fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result {
-        self.push((key, target));
-        Ok(())
-    }
-}
-
 pub trait Link {
-    fn key(&self) -> Option<&dyn Data>;
-    fn target(&self) -> &dyn Data;
+    type Target: Data + 'static;
+    type Key: Data + 'static;
+
+    fn target(&self) -> &Self::Target;
+    fn key(&self) -> Option<&Self::Key>;
 
     fn build_into(self, links: &mut (impl Links + ?Sized)) -> Result;
 }
@@ -85,13 +82,16 @@ impl<T> Link for T
 where
     T: Data + 'static,
 {
+    type Key = ();
+    type Target = T;
+
     #[inline]
-    fn key(&self) -> Option<&dyn Data> {
+    fn key(&self) -> Option<&Self::Key> {
         None
     }
 
     #[inline]
-    fn target(&self) -> &dyn Data {
+    fn target(&self) -> &Self::Target {
         self
     }
 
@@ -106,13 +106,16 @@ where
     K: Data + 'static,
     T: Data + 'static,
 {
+    type Key = K;
+    type Target = T;
+
     #[inline]
-    fn key(&self) -> Option<&dyn Data> {
+    fn key(&self) -> Option<&Self::Key> {
         Some(&self.0)
     }
 
     #[inline]
-    fn target(&self) -> &dyn Data {
+    fn target(&self) -> &Self::Target {
         &self.1
     }
 
@@ -129,5 +132,38 @@ mod tests {
     #[test]
     fn object_safety() {
         fn _f(_l: &dyn Links) {}
+    }
+
+    #[test]
+    fn target_only() {
+        let mut links: Vec<BoxedData> = Vec::new();
+
+        let target = 42u32;
+        links.push_link(target).unwrap();
+    }
+
+    #[test]
+    fn target_and_key() {
+        let mut links: Vec<(BoxedData, BoxedData)> = Vec::new();
+
+        let target = 42u32;
+        let key = "foo";
+        links.push_link((key, target)).unwrap();
+    }
+
+    #[test]
+    fn ref_target() {
+        let mut links: Vec<BoxedData> = Vec::new();
+
+        let target = &42u32;
+        links.push_link(target).unwrap();
+    }
+
+    #[test]
+    fn option_target() {
+        let mut links: Vec<BoxedData> = Vec::new();
+
+        let target = Some(42u32);
+        links.push_link(target).unwrap();
     }
 }
