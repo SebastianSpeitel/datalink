@@ -207,29 +207,15 @@ pub trait DataExt: Data {
     #[inline]
     #[cfg(feature = "std")]
     fn as_items(&self) -> Result<Vec<(BoxedData, BoxedData)>, LinkError> {
-        #[derive(Default)]
-        struct ItemLinks(Vec<(BoxedData, BoxedData)>);
+        self.collect_links()
+    }
 
-        impl Links for ItemLinks {
-            fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result<(), LinkError> {
-                if let Some(key) = key {
-                    self.0.push((key, target));
-                }
-                Ok(())
-            }
-            fn push_keyed(&mut self, target: BoxedData, key: BoxedData) -> Result<(), LinkError> {
-                self.0.push((key, target));
-                Ok(())
-            }
-            fn push_unkeyed(&mut self, _target: BoxedData) -> Result<(), LinkError> {
-                Ok(())
-            }
-        }
-
-        let mut links = ItemLinks::default();
+    #[inline]
+    #[must_use]
+    fn collect_links<L: Links + Default>(&self) -> Result<L, LinkError> {
+        let mut links = L::default();
         self.provide_links(&mut links)?;
-
-        Ok(links.0)
+        Ok(links)
     }
 
     #[allow(unused_variables)]
