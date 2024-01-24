@@ -251,7 +251,9 @@ where
 {
     #[inline]
     fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-        links.extend(self.iter().map(|(k, t)| (k.to_owned(), t.to_owned())))
+        links
+            .extend(self.iter().map(|(k, t)| (k.to_owned(), t.to_owned())))
+            .map(|_| ())
     }
 }
 
@@ -262,7 +264,9 @@ where
 {
     #[inline]
     fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-        links.extend(self.iter().map(::std::borrow::ToOwned::to_owned))
+        links
+            .extend(self.iter().map(::std::borrow::ToOwned::to_owned))
+            .map(|_| ())
     }
 }
 

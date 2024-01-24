@@ -2,7 +2,7 @@
 use std::borrow::Cow;
 
 use crate::data::{format, BoxedData, Data};
-use crate::links::{LinkError, Links};
+use crate::links::{LinkError, Links, Result};
 use crate::query::Query;
 
 pub trait DataExt: Data {
@@ -156,25 +156,27 @@ pub trait DataExt: Data {
     #[inline]
     #[cfg(feature = "std")]
     fn as_list(&self) -> Result<Vec<BoxedData>, LinkError> {
+        use crate::links::CONTINUE;
+
         #[derive(Default)]
         struct ListLinks(Vec<BoxedData>);
 
         impl Links for ListLinks {
             #[inline]
-            fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result<(), LinkError> {
+            fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result {
                 if key.is_none() {
                     self.0.push(target);
                 }
-                Ok(())
+                CONTINUE
             }
             #[inline]
-            fn push_unkeyed(&mut self, target: BoxedData) -> Result<(), LinkError> {
+            fn push_unkeyed(&mut self, target: BoxedData) -> Result {
                 self.0.push(target);
-                Ok(())
+                CONTINUE
             }
             #[inline]
-            fn push_keyed(&mut self, _target: BoxedData, _key: BoxedData) -> Result<(), LinkError> {
-                Ok(())
+            fn push_keyed(&mut self, _target: BoxedData, _key: BoxedData) -> Result {
+                CONTINUE
             }
         }
 

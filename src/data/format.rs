@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::data::{BoxedData, Data};
-use crate::links::{LinkError, Links};
+use crate::links::{Links, Result, CONTINUE};
 use crate::value::ValueBuiler;
 
 #[derive(Default, Debug)]
@@ -282,7 +282,7 @@ mod recursive {
     }
 
     impl<F: DataFormatter> Links for RecursiveLinks<'_, '_, F> {
-        fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result<(), LinkError> {
+        fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result {
             let link = FormattableLink::<F, _, _> {
                 key,
                 target,
@@ -291,7 +291,7 @@ mod recursive {
             };
             self.fmt_set.entry(&link);
 
-            Ok(())
+            CONTINUE
         }
     }
 }

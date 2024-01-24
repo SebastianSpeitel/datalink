@@ -3,7 +3,7 @@ use std::{
     hash::BuildHasher,
 };
 
-use super::{Links, Result};
+use super::{Links, Result, BREAK, CONTINUE};
 use crate::data::{
     unique::{Fixed, MaybeUnique},
     BoxedData,
@@ -13,7 +13,7 @@ impl Links for Vec<(Option<BoxedData>, BoxedData)> {
     #[inline]
     fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result {
         self.push((key, target));
-        Ok(())
+        CONTINUE
     }
 }
 
@@ -23,18 +23,18 @@ impl Links for Vec<(BoxedData, BoxedData)> {
         if let Some(key) = key {
             self.push((key, target));
         }
-        Ok(())
+        CONTINUE
     }
 
     #[inline]
     fn push_unkeyed(&mut self, _target: BoxedData) -> Result {
-        Ok(())
+        CONTINUE
     }
 
     #[inline]
     fn push_keyed(&mut self, target: BoxedData, key: BoxedData) -> Result {
         self.push((key, target));
-        Ok(())
+        CONTINUE
     }
 }
 
@@ -42,19 +42,19 @@ impl Links for Vec<BoxedData> {
     #[inline]
     fn push(&mut self, target: BoxedData, _key: Option<BoxedData>) -> Result {
         self.push(target);
-        Ok(())
+        CONTINUE
     }
 
     #[inline]
     fn push_unkeyed(&mut self, target: BoxedData) -> Result {
         self.push(target);
-        Ok(())
+        CONTINUE
     }
 
     #[inline]
     fn push_keyed(&mut self, target: BoxedData, _key: BoxedData) -> Result {
         self.push(target);
-        Ok(())
+        CONTINUE
     }
 }
 
@@ -62,12 +62,12 @@ impl Links for Option<(BoxedData, BoxedData)> {
     #[inline]
     fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result {
         if self.is_some() {
-            return Ok(());
+            return BREAK;
         }
         if let Some(key) = key {
             self.replace((key, target));
         }
-        Ok(())
+        BREAK
     }
 }
 
@@ -75,10 +75,10 @@ impl Links for Option<(Option<BoxedData>, BoxedData)> {
     #[inline]
     fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result {
         if self.is_some() {
-            return Ok(());
+            return BREAK;
         }
         self.replace((key, target));
-        Ok(())
+        BREAK
     }
 }
 
@@ -86,10 +86,10 @@ impl Links for Option<BoxedData> {
     #[inline]
     fn push(&mut self, target: BoxedData, _key: Option<BoxedData>) -> Result {
         if self.is_some() {
-            return Ok(());
+            return BREAK;
         }
         self.replace(target);
-        Ok(())
+        BREAK
     }
 }
 
@@ -101,18 +101,18 @@ impl<S: BuildHasher> Links for HashMap<Fixed<BoxedData>, BoxedData, S> {
                 self.insert(key, target);
             }
         }
-        Ok(())
+        CONTINUE
     }
     #[inline]
     fn push_unkeyed(&mut self, _target: BoxedData) -> Result {
-        Ok(())
+        CONTINUE
     }
     #[inline]
     fn push_keyed(&mut self, target: BoxedData, key: BoxedData) -> Result {
         if let Ok(key) = key.try_into_unique() {
             self.insert(key, target);
         }
-        Ok(())
+        CONTINUE
     }
 }
 
@@ -122,20 +122,20 @@ impl<S: BuildHasher> Links for HashSet<Fixed<BoxedData>, S> {
         if let Ok(target) = target.try_into_unique() {
             self.insert(target);
         }
-        Ok(())
+        CONTINUE
     }
     #[inline]
     fn push_unkeyed(&mut self, target: BoxedData) -> Result {
         if let Ok(target) = target.try_into_unique() {
             self.insert(target);
         }
-        Ok(())
+        CONTINUE
     }
     #[inline]
     fn push_keyed(&mut self, target: BoxedData, _key: BoxedData) -> Result {
         if let Ok(target) = target.try_into_unique() {
             self.insert(target);
         }
-        Ok(())
+        CONTINUE
     }
 }
