@@ -1,6 +1,6 @@
 use crate::data::{BoxedData, Data};
 
-mod impls;
+pub mod impls;
 
 pub mod prelude {
     pub use super::Link;
