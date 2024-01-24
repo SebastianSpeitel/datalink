@@ -12,30 +12,6 @@ mod std;
 mod toml;
 
 #[warn(clippy::missing_trait_methods)]
-impl Data for &dyn Data {
-    #[inline]
-    fn provide_value<'d>(&'d self, builder: &mut dyn ValueBuiler<'d>) {
-        (**self).provide_value(builder)
-    }
-    #[inline]
-    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-        (**self).provide_links(links)
-    }
-    #[inline]
-    fn query_links(
-        &self,
-        links: &mut dyn Links,
-        query: &crate::query::Query,
-    ) -> Result<(), LinkError> {
-        (**self).query_links(links, query)
-    }
-    #[inline]
-    fn get_id(&self) -> Option<ID> {
-        (**self).get_id()
-    }
-}
-
-#[warn(clippy::missing_trait_methods)]
 impl<D: Data + ?Sized> Data for Box<D> {
     #[inline]
     fn provide_value<'d>(&'d self, builder: &mut dyn ValueBuiler<'d>) {
