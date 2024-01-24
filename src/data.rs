@@ -61,6 +61,30 @@ pub trait Data {
     }
 }
 
+#[warn(clippy::missing_trait_methods)]
+impl<D: Data + ?Sized> Data for &D {
+    #[inline]
+    fn provide_value<'d>(&'d self, builder: &mut dyn ValueBuiler<'d>) {
+        (*self).provide_value(builder)
+    }
+    #[inline]
+    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
+        (*self).provide_links(links)
+    }
+    #[inline]
+    fn query_links(
+        &self,
+        links: &mut dyn Links,
+        query: &crate::query::Query,
+    ) -> Result<(), LinkError> {
+        (*self).query_links(links, query)
+    }
+    #[inline]
+    fn get_id(&self) -> Option<crate::id::ID> {
+        (*self).get_id()
+    }
+}
+
 #[cfg(feature = "unique")]
 impl<D: Data + ?Sized> PartialEq<D> for dyn Data {
     #[inline]
