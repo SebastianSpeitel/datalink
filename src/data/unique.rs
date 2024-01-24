@@ -19,7 +19,7 @@ pub trait Unique: Data {
 }
 
 /// Wrapper for Data with or without an `ID` to make it always `Unique`
-pub struct Fixed<D: Data + ?Sized, T: Borrow<D>> {
+pub struct Fixed<D: Data + ?Sized, T: Borrow<D> = D> {
     data: T,
     id: ID,
     pd: PhantomData<D>,
