@@ -43,7 +43,9 @@ impl Data for Val {
 impl Data for Map<String, Val> {
     #[inline]
     fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-        links.extend(self.iter().map(|(k, v)| (k.to_owned(), v.to_owned())))
+        links
+            .extend(self.iter().map(|(k, v)| (k.to_owned(), v.to_owned())))
+            .map(|_| ())
     }
 }
 

@@ -1,3 +1,5 @@
+use std::ops::ControlFlow;
+
 use crate::data::{BoxedData, Data};
 
 pub mod impls;
@@ -8,9 +10,13 @@ pub mod prelude {
     pub use super::Links;
     pub use super::LinksExt;
     pub use super::Result;
+    pub use super::BREAK;
+    pub use super::CONTINUE;
 }
 
-pub type Result<T = (), E = LinkError> = core::result::Result<T, E>;
+pub type Result<T = ControlFlow<()>, E = LinkError> = core::result::Result<T, E>;
+pub const CONTINUE: Result = Ok(ControlFlow::Continue(()));
+pub const BREAK: Result = Ok(ControlFlow::Break(()));
 
 #[derive(Debug, thiserror::Error)]
 pub enum LinkError {
@@ -60,9 +66,11 @@ pub trait LinksExt: Links {
     #[inline]
     fn extend(&mut self, links: impl IntoIterator<Item = impl Link>) -> Result {
         for link in links {
-            link.build_into(self)?;
+            if link.build_into(self)?.is_break() {
+                return BREAK;
+            }
         }
-        Ok(())
+        CONTINUE
     }
 }
 
