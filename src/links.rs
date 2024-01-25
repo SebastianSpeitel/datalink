@@ -1,8 +1,14 @@
 use std::ops::ControlFlow;
 
-use crate::data::{BoxedData, Data};
+use crate::{
+    data::{BoxedData, Data},
+    query::LinkSelector,
+};
 
+pub mod filtered;
 pub mod impls;
+
+use filtered::Filtered;
 
 pub mod prelude {
     pub use super::Link;
