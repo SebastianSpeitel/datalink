@@ -102,8 +102,8 @@ pub trait LinksExt: Links {
     #[inline]
     fn push_link<L: Link>(&mut self, link: L) -> Result
     where
-        L::Target: 'static,
-        L::Key: 'static,
+        L::Target: 'static + Sized,
+        L::Key: 'static + Sized,
     {
         link.build_into(self)
     }
@@ -111,8 +111,8 @@ pub trait LinksExt: Links {
     #[inline]
     fn extend<L: Link>(&mut self, links: impl IntoIterator<Item = L>) -> Result
     where
-        L::Target: 'static,
-        L::Key: 'static,
+        L::Target: 'static + Sized,
+        L::Key: 'static + Sized,
     {
         for link in links {
             if link.build_into(self)?.is_break() {
@@ -134,21 +134,22 @@ pub trait LinksExt: Links {
 impl<T: Links + ?Sized> LinksExt for T {}
 
 pub trait Link {
-    type Target: Data;
-    type Key: Data;
+    type Target: Data + ?Sized;
+    type Key: Data + ?Sized;
 
     fn target(&self) -> &Self::Target;
     fn key(&self) -> Option<&Self::Key>;
 
     fn build_into(self, links: &mut (impl Links + ?Sized)) -> Result
     where
-        Self::Key: 'static,
-        Self::Target: 'static;
+        Self: Sized,
+        Self::Key: 'static + Sized,
+        Self::Target: 'static + Sized;
 }
 
 impl<T> Link for T
 where
-    T: Data,
+    T: Data + ?Sized,
 {
     type Key = ();
     type Target = T;
@@ -166,8 +167,7 @@ where
     #[inline]
     fn build_into(self, links: &mut (impl Links + ?Sized)) -> Result
     where
-        Self::Key: 'static,
-        Self::Target: 'static,
+        Self::Target: 'static + Sized,
     {
         links.push_unkeyed(Box::new(self))
     }
@@ -176,7 +176,7 @@ where
 impl<K, T> Link for (K, T)
 where
     K: Data,
-    T: Data,
+    T: Data + ?Sized,
 {
     type Key = K;
     type Target = T;
@@ -194,8 +194,9 @@ where
     #[inline]
     fn build_into(self, links: &mut (impl Links + ?Sized)) -> Result
     where
+        Self: Sized,
         Self::Key: 'static,
-        Self::Target: 'static,
+        Self::Target: 'static + Sized,
     {
         links.push_keyed(Box::new(self.1), Box::new(self.0))
     }
