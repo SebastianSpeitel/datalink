@@ -1,4 +1,6 @@
 mod selectors;
+use std::num::NonZeroUsize;
+
 pub use selectors::*;
 
 use crate::data::BoxedData;
@@ -13,14 +15,28 @@ pub mod prelude {
 
 #[derive(Default, Debug)]
 pub struct Query {
+    /// The selector to use to select links.
     selector: LinkSelector,
+    /// The maximum number of results to return.
+    /// `None` means no limit.
+    limit: Option<NonZeroUsize>,
 }
 
 impl Query {
     #[inline]
     #[must_use]
-    pub fn new(selector: LinkSelector) -> Self {
-        Query { selector }
+    pub const fn new(selector: LinkSelector) -> Self {
+        Query {
+            selector,
+            limit: None,
+        }
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn with_limit(mut self, limit: usize) -> Self {
+        self.limit = NonZeroUsize::new(limit);
+        self
     }
 
     #[inline]
@@ -32,14 +48,23 @@ impl Query {
 
     #[inline]
     #[must_use]
-    pub fn build_unoptimized(self) -> Self {
+    pub const fn build_unoptimized(self) -> Self {
         self
     }
 
     #[inline]
     #[must_use]
-    pub fn selector(&self) -> &LinkSelector {
+    pub const fn selector(&self) -> &LinkSelector {
         &self.selector
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn limit(&self) -> usize {
+        match self.limit {
+            Some(limit) => limit.get(),
+            None => usize::MAX,
+        }
     }
 }
 
@@ -55,7 +80,15 @@ impl<L: Link + ?Sized> Selector<L> for Query {
 }
 
 impl From<LinkSelector> for Query {
+    #[inline]
     fn from(value: LinkSelector) -> Self {
         Self::new(value)
+    }
+}
+
+impl From<DataSelector> for Query {
+    #[inline]
+    fn from(value: DataSelector) -> Self {
+        Self::new(LinkSelector::Target(value))
     }
 }
