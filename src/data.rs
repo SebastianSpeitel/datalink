@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use crate::{
-    links::{LinkError, Links},
+    links::{LinkError, Links, LinksExt},
     value::ValueBuiler,
 };
 
@@ -50,7 +50,7 @@ pub trait Data {
         match query.selector() {
             LinkSelector::None => Ok(()),
             LinkSelector::Any => self.provide_links(links),
-            _ => Err(LinkError::UnsupportedQuery),
+            selector => self.provide_links(&mut links.filter(selector)),
         }
     }
 
