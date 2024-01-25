@@ -33,6 +33,41 @@ impl From<std::fmt::Error> for LinkError {
     }
 }
 
+impl From<std::io::Error> for LinkError {
+    #[inline]
+    fn from(err: std::io::Error) -> Self {
+        LinkError::Other(Box::new(err))
+    }
+}
+
+impl From<std::str::Utf8Error> for LinkError {
+    #[inline]
+    fn from(err: std::str::Utf8Error) -> Self {
+        LinkError::Other(Box::new(err))
+    }
+}
+
+impl From<std::string::FromUtf8Error> for LinkError {
+    #[inline]
+    fn from(err: std::string::FromUtf8Error) -> Self {
+        LinkError::Other(Box::new(err))
+    }
+}
+
+impl From<std::num::ParseIntError> for LinkError {
+    #[inline]
+    fn from(err: std::num::ParseIntError) -> Self {
+        LinkError::Other(Box::new(err))
+    }
+}
+
+impl From<std::num::ParseFloatError> for LinkError {
+    #[inline]
+    fn from(err: std::num::ParseFloatError) -> Self {
+        LinkError::Other(Box::new(err))
+    }
+}
+
 impl LinkError {
     #[inline]
     pub fn other<E>(err: E) -> Self
