@@ -142,6 +142,7 @@ impl<D: Data + ?Sized, T: Borrow<D>, O: Data> PartialEq<O> for Fixed<D, T> {
 impl<D: Data + ?Sized, T: Borrow<D>> Eq for Fixed<D, T> {}
 
 impl<D: Data + ?Sized, T: Borrow<D>> Hash for Fixed<D, T> {
+    #[inline]
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.id.hash(state);
     }
