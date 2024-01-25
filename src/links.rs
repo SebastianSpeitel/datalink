@@ -94,12 +94,20 @@ pub trait Links {
 
 pub trait LinksExt: Links {
     #[inline]
-    fn push_link(&mut self, link: impl Link) -> Result {
+    fn push_link<L: Link>(&mut self, link: L) -> Result
+    where
+        L::Target: 'static,
+        L::Key: 'static,
+    {
         link.build_into(self)
     }
 
     #[inline]
-    fn extend(&mut self, links: impl IntoIterator<Item = impl Link>) -> Result {
+    fn extend<L: Link>(&mut self, links: impl IntoIterator<Item = L>) -> Result
+    where
+        L::Target: 'static,
+        L::Key: 'static,
+    {
         for link in links {
             if link.build_into(self)?.is_break() {
                 return BREAK;
@@ -107,23 +115,34 @@ pub trait LinksExt: Links {
         }
         CONTINUE
     }
+
+    #[inline]
+    fn filter<'s>(&mut self, selector: &'s LinkSelector) -> Filtered<'s, '_, Self> {
+        Filtered {
+            selector,
+            inner: self,
+        }
+    }
 }
 
 impl<T: Links + ?Sized> LinksExt for T {}
 
 pub trait Link {
-    type Target: Data + 'static;
-    type Key: Data + 'static;
+    type Target: Data;
+    type Key: Data;
 
     fn target(&self) -> &Self::Target;
     fn key(&self) -> Option<&Self::Key>;
 
-    fn build_into(self, links: &mut (impl Links + ?Sized)) -> Result;
+    fn build_into(self, links: &mut (impl Links + ?Sized)) -> Result
+    where
+        Self::Key: 'static,
+        Self::Target: 'static;
 }
 
 impl<T> Link for T
 where
-    T: Data + 'static,
+    T: Data,
 {
     type Key = ();
     type Target = T;
@@ -139,15 +158,19 @@ where
     }
 
     #[inline]
-    fn build_into(self, links: &mut (impl Links + ?Sized)) -> Result {
+    fn build_into(self, links: &mut (impl Links + ?Sized)) -> Result
+    where
+        Self::Key: 'static,
+        Self::Target: 'static,
+    {
         links.push_unkeyed(Box::new(self))
     }
 }
 
 impl<K, T> Link for (K, T)
 where
-    K: Data + 'static,
-    T: Data + 'static,
+    K: Data,
+    T: Data,
 {
     type Key = K;
     type Target = T;
@@ -163,7 +186,11 @@ where
     }
 
     #[inline]
-    fn build_into(self, links: &mut (impl Links + ?Sized)) -> Result {
+    fn build_into(self, links: &mut (impl Links + ?Sized)) -> Result
+    where
+        Self::Key: 'static,
+        Self::Target: 'static,
+    {
         links.push_keyed(Box::new(self.1), Box::new(self.0))
     }
 }
