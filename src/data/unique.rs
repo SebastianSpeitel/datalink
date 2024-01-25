@@ -18,6 +18,14 @@ pub trait Unique: Data {
     fn id(&self) -> ID;
 }
 
+#[warn(clippy::missing_trait_methods)]
+impl<D: Unique + ?Sized> Unique for &D {
+    #[inline]
+    fn id(&self) -> ID {
+        (*self).id()
+    }
+}
+
 /// Wrapper for Data with or without an `ID` to make it always `Unique`
 pub struct Fixed<D: Data + ?Sized, T: Borrow<D> = D> {
     data: T,
