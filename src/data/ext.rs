@@ -129,8 +129,8 @@ pub trait DataExt: Data {
     }
 
     #[inline]
-    fn query(&self, query: &Query) -> Result<Vec<(Option<BoxedData>, BoxedData)>, LinkError> {
-        let mut links = Vec::new();
+    fn query<L: Links + Default>(&self, query: &Query) -> Result<L, LinkError> {
+        let mut links = L::default();
 
         self.query_links(&mut links, query)?;
 
