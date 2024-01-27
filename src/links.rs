@@ -202,6 +202,59 @@ where
     }
 }
 
+#[derive(Debug)]
+pub enum MaybeKeyed<K, T> {
+    Keyed(K, T),
+    Unkeyed(T),
+}
+
+impl<K, T> MaybeKeyed<K, T> {
+    #[inline]
+    pub fn new(key: Option<K>, target: T) -> Self {
+        match key {
+            Some(key) => Self::Keyed(key, target),
+            None => Self::Unkeyed(target),
+        }
+    }
+}
+
+impl<K, T> Link for MaybeKeyed<K, T>
+where
+    K: Data,
+    T: Data,
+{
+    type Key = K;
+    type Target = T;
+
+    #[inline]
+    fn key(&self) -> Option<&Self::Key> {
+        match self {
+            Self::Keyed(key, _) => Some(key),
+            Self::Unkeyed(_) => None,
+        }
+    }
+
+    #[inline]
+    fn target(&self) -> &Self::Target {
+        match self {
+            Self::Keyed(_, target) => target,
+            Self::Unkeyed(target) => target,
+        }
+    }
+
+    #[inline]
+    fn build_into(self, links: &mut (impl Links + ?Sized)) -> Result
+    where
+        Self::Key: 'static,
+        Self::Target: 'static,
+    {
+        match self {
+            Self::Keyed(key, target) => links.push_keyed(Box::new(target), Box::new(key)),
+            Self::Unkeyed(target) => links.push_unkeyed(Box::new(target)),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
