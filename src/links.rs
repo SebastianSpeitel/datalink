@@ -15,6 +15,7 @@ pub mod prelude {
     pub use super::LinkError;
     pub use super::Links;
     pub use super::LinksExt;
+    pub use super::MaybeKeyed;
     pub use super::Result;
     pub use super::BREAK;
     pub use super::CONTINUE;
