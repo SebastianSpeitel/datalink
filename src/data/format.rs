@@ -310,7 +310,7 @@ mod serial {
     impl<'d, F: DataFormatter, D: Data + ?Sized> SerialLinks<'d, F, D> {
         #[inline]
         pub(super) fn new(data: &'d D, state: F::State) -> Self {
-            let mut links = Vec::new();
+            let mut links = Vec::<(Option<BoxedData>, BoxedData)>::new();
             // TODO: do something about an error here
             let _ = data.provide_links(&mut links);
             Self {
