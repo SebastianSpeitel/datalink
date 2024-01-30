@@ -202,17 +202,58 @@ mod num {
 impl<D: Data> Data for Option<D> {
     #[inline]
     fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
+        if let Some(d) = self {
+            d.provide_value(value);
+        }
+    }
+
+    #[inline]
+    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
+        if let Some(d) = self {
+            d.provide_links(links)?;
+        }
+
+        Ok(())
+    }
+
+    #[inline]
+    fn query_links(
+        &self,
+        links: &mut dyn Links,
+        query: &crate::query::Query,
+    ) -> Result<(), LinkError> {
+        if let Some(d) = self {
+            d.query_links(links, query)?;
+        }
+
+        Ok(())
+    }
+
+    #[inline]
+    fn get_id(&self) -> Option<crate::id::ID> {
+        self.as_ref().and_then(|d| d.get_id())
+    }
+}
+
+#[warn(clippy::missing_trait_methods)]
+impl<D: Data + ?Sized> Data for std::borrow::Cow<'_, D>
+where
+    D: ToOwned,
+    D::Owned: Data,
+{
+    #[inline]
+    fn provide_value<'d>(&'d self, builder: &mut dyn ValueBuiler<'d>) {
         match self {
-            Some(data) => data.provide_value(value),
-            None => {}
+            Self::Borrowed(data) => data.provide_value(builder),
+            Self::Owned(data) => data.provide_value(builder),
         }
     }
 
     #[inline]
     fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
         match self {
-            Some(data) => data.provide_links(links),
-            None => Ok(()),
+            Self::Borrowed(data) => data.provide_links(links),
+            Self::Owned(data) => data.provide_links(links),
         }
     }
 
@@ -223,16 +264,33 @@ impl<D: Data> Data for Option<D> {
         query: &crate::query::Query,
     ) -> Result<(), LinkError> {
         match self {
-            Some(data) => data.query_links(links, query),
-            None => Ok(()),
+            Self::Borrowed(data) => data.query_links(links, query),
+            Self::Owned(data) => data.query_links(links, query),
         }
     }
 
     #[inline]
     fn get_id(&self) -> Option<crate::id::ID> {
         match self {
-            Some(d) => d.get_id(),
-            None => None,
+            Self::Borrowed(data) => data.get_id(),
+            Self::Owned(data) => data.get_id(),
+        }
+    }
+}
+
+#[cfg(feature = "unique")]
+#[warn(clippy::missing_trait_methods)]
+impl<D: crate::data::unique::Unique + ?Sized> crate::data::unique::Unique
+    for std::borrow::Cow<'_, D>
+where
+    D: ToOwned,
+    D::Owned: crate::data::unique::Unique,
+{
+    #[inline]
+    fn id(&self) -> crate::id::ID {
+        match self {
+            Self::Borrowed(data) => data.id(),
+            Self::Owned(data) => data.id(),
         }
     }
 }
