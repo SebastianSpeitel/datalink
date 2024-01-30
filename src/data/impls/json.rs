@@ -46,6 +46,23 @@ impl Data for Map<String, Val> {
         links.extend(self.iter().map(|(k, v)| (k.to_owned(), v.to_owned())))?;
         Ok(())
     }
+
+    #[inline]
+    fn query_links(
+        &self,
+        links: &mut dyn Links,
+        query: &crate::query::Query,
+    ) -> Result<(), LinkError> {
+        use crate::query::Selector;
+        links.extend(self.iter().filter_map(|(k, v)| {
+            if query.selects((k, v)) {
+                Some((k.to_owned(), v.to_owned()))
+            } else {
+                None
+            }
+        }))?;
+        Ok(())
+    }
 }
 
 impl Data for Number {
