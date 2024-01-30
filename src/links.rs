@@ -238,8 +238,7 @@ where
     #[inline]
     fn target(&self) -> &Self::Target {
         match self {
-            Self::Keyed(_, target) => target,
-            Self::Unkeyed(target) => target,
+            Self::Keyed(_, t) | Self::Unkeyed(t) => t,
         }
     }
 
