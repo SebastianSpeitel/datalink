@@ -1,7 +1,6 @@
 use ::std::{borrow::Cow, collections::HashMap};
 
 use crate::data::Data;
-use crate::id::ID;
 use crate::links::{LinkError, Links, LinksExt};
 use crate::value::ValueBuiler;
 
@@ -183,62 +182,6 @@ mod net {
                 net::SocketAddr::V6(addr) => addr.provide_links(links),
             }
         }
-    }
-}
-
-#[warn(clippy::missing_trait_methods)]
-impl<D: Data + ?Sized> Data for ::std::sync::Arc<D> {
-    #[inline]
-    fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-        (**self).provide_value(value)
-    }
-
-    #[inline]
-    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-        (**self).provide_links(links)
-    }
-
-    #[inline]
-    fn query_links(
-        &self,
-        links: &mut dyn Links,
-        query: &crate::query::Query,
-    ) -> Result<(), LinkError> {
-        (**self).query_links(links, query)
-    }
-
-    #[inline]
-    #[cfg(feature = "unique")]
-    fn get_id(&self) -> Option<ID> {
-        (**self).get_id()
-    }
-}
-
-#[warn(clippy::missing_trait_methods)]
-impl<D: Data + ?Sized> Data for ::std::rc::Rc<D> {
-    #[inline]
-    fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-        (**self).provide_value(value)
-    }
-
-    #[inline]
-    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-        (**self).provide_links(links)
-    }
-
-    #[inline]
-    fn query_links(
-        &self,
-        links: &mut dyn Links,
-        query: &crate::query::Query,
-    ) -> Result<(), LinkError> {
-        (**self).query_links(links, query)
-    }
-
-    #[inline]
-    #[cfg(feature = "unique")]
-    fn get_id(&self) -> Option<ID> {
-        (**self).get_id()
     }
 }
 

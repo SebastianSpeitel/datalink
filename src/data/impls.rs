@@ -1,7 +1,4 @@
 use crate::data::Data;
-use crate::id::ID;
-use crate::links::{LinkError, Links};
-use crate::value::ValueBuiler;
 
 mod core;
 #[cfg(feature = "json")]
@@ -11,50 +8,52 @@ mod std;
 #[cfg(feature = "toml")]
 mod toml;
 
-#[warn(clippy::missing_trait_methods)]
-impl<D: Data + ?Sized> Data for Box<D> {
-    #[inline]
-    fn provide_value<'d>(&'d self, builder: &mut dyn ValueBuiler<'d>) {
-        (**self).provide_value(builder)
-    }
-    #[inline]
-    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-        (**self).provide_links(links)
-    }
-    #[inline]
-    fn query_links(
-        &self,
-        links: &mut dyn Links,
-        query: &crate::query::Query,
-    ) -> Result<(), LinkError> {
-        (**self).query_links(links, query)
-    }
-    #[inline]
-    fn get_id(&self) -> Option<ID> {
-        (**self).get_id()
-    }
+#[macro_export]
+macro_rules! impl_deref {
+    ($ty:ty) => {
+        impl<D: Data + ?Sized> $crate::data::Data for $ty {
+            #[inline]
+            fn provide_value<'d>(&'d self, builder: &mut dyn $crate::value::ValueBuiler<'d>) {
+                (**self).provide_value(builder)
+            }
+            #[inline]
+            fn provide_links(
+                &self,
+                links: &mut dyn $crate::links::Links,
+            ) -> $crate::links::Result<()> {
+                (**self).provide_links(links)
+            }
+            #[inline]
+            fn query_links(
+                &self,
+                links: &mut dyn $crate::links::Links,
+                query: &$crate::query::Query,
+            ) -> $crate::links::Result<()> {
+                (**self).query_links(links, query)
+            }
+            #[inline]
+            fn get_id(&self) -> Option<$crate::id::ID> {
+                (**self).get_id()
+            }
+        }
+        impl<D: $crate::data::unique::Unique + ?Sized> $crate::data::unique::Unique for $ty {
+            #[inline]
+            fn id(&self) -> $crate::id::ID {
+                debug_assert!(self.get_id().is_some_and(|id| id == (*self).id()));
+                (**self).id()
+            }
+        }
+    };
 }
 
-// #[warn(clippy::missing_trait_methods)]
-// impl<D: Data + ?Sized, F> Data for F
-// where
-//     D: 'static,
-//     F: Fn() -> &'static D,
-// {
-//     #[inline]
-//     fn provide_value<'d>(&'d self, builder: &mut dyn ValueBuiler<'d>) {
-//         self().provide_value(builder)
-//     }
-//     #[inline]
-//     fn provide_links(&self, builder: &mut dyn LinkBuilder) {
-//         self().provide_links(builder)
-//     }
-//     #[cfg(feature = "unique")]
-//     #[inline]
-//     fn id(&self) -> Option<ID> {
-//         self().id()
-//     }
-// }
+impl_deref!(Box<D>);
+impl_deref!(::std::sync::Arc<D>);
+impl_deref!(::std::rc::Rc<D>);
+impl_deref!(::std::sync::MutexGuard<'_, D>);
+impl_deref!(::std::sync::RwLockReadGuard<'_, D>);
+impl_deref!(::std::sync::RwLockWriteGuard<'_, D>);
+impl_deref!(::std::cell::Ref<'_, D>);
+impl_deref!(::std::cell::RefMut<'_, D>);
 
 #[cfg(test)]
 mod tests {
