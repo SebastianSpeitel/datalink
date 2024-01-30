@@ -115,7 +115,7 @@ impl<D: Data + ?Sized, T: Borrow<D>> Data for Fixed<D, T> {
             debug_assert_eq!(id, self.id);
         }
 
-        self.id.into()
+        Some(self.id)
     }
 }
 impl<D: Data + ?Sized, T: Borrow<D>> Unique for Fixed<D, T> {
