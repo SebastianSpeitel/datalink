@@ -1,8 +1,11 @@
 use crate::{data::Data, id::ID, links::Link};
-use std::ops::{BitAnd, BitOr, Not};
+use std::{
+    borrow::Borrow,
+    ops::{BitAnd, BitOr, Not},
+};
 
 pub trait Selector<On: ?Sized> {
-    fn selects(&self, obj: &On) -> bool;
+    fn selects<T: Borrow<On>>(&self, obj: T) -> bool;
 
     #[inline]
     fn as_bool(&self) -> Option<bool> {
@@ -63,10 +66,10 @@ impl From<&str> for TextSelector {
     }
 }
 
-impl<S: AsRef<str>> Selector<S> for TextSelector {
+impl Selector<str> for TextSelector {
     #[inline]
-    fn selects(&self, obj: &S) -> bool {
-        self.search.as_ref() == obj.as_ref()
+    fn selects<T: Borrow<str>>(&self, obj: T) -> bool {
+        self.search.as_ref() == obj.borrow()
     }
 }
 
@@ -143,17 +146,17 @@ impl DataSelector {
 }
 impl<D: Data + ?Sized> Selector<D> for DataSelector {
     #[inline]
-    fn selects(&self, d: &D) -> bool {
+    fn selects<T: Borrow<D>>(&self, d: T) -> bool {
         use DataSelector as E;
         match self {
             E::Any => true,
             E::None => false,
-            E::And(and) => and.iter().all(|s| s.selects(d)),
-            E::Or(or) => or.iter().any(|s| s.selects(d)),
-            E::Id(id) => d.get_id().is_some_and(|ref i| i == id),
-            E::NotId(id) => !d.get_id().is_some_and(|ref i| i == id),
+            E::And(and) => and.iter().all(|s| Selector::<D>::selects(s, d.borrow())),
+            E::Or(or) => or.iter().any(|s| Selector::<D>::selects(s, d.borrow())),
+            E::Id(id) => d.borrow().get_id().is_some_and(|ref i| i == id),
+            E::NotId(id) => !d.borrow().get_id().is_some_and(|ref i| i == id),
             E::Not(s) => !s.selects(d),
-            E::Unique => d.get_id().is_some(),
+            E::Unique => d.borrow().get_id().is_some(),
             E::Linked(_s) => {
                 unimplemented!();
             }
@@ -165,13 +168,13 @@ impl<D: Data + ?Sized> Selector<D> for DataSelector {
                 impl crate::value::ValueBuiler<'_> for Matcher<'_> {
                     fn str(&mut self, value: std::borrow::Cow<'_, str>) {
                         match self {
-                            Matcher::Selecting(s) if s.selects(&value) => *self = Matcher::Found,
+                            Matcher::Selecting(s) if s.selects(value) => *self = Matcher::Found,
                             _ => {}
                         }
                     }
                 }
                 let mut m = Matcher::Selecting(s);
-                d.provide_value(&mut m);
+                d.borrow().provide_value(&mut m);
                 matches!(m, Matcher::Found)
             }
         }
@@ -273,16 +276,19 @@ impl LinkSelector {
 }
 impl<L: Link + ?Sized> Selector<L> for LinkSelector {
     #[inline]
-    fn selects(&self, l: &L) -> bool {
+    fn selects<T: Borrow<L>>(&self, l: T) -> bool {
         use LinkSelector as E;
         match self {
             E::Any => true,
             E::None => false,
             E::Not(s) => !s.selects(l),
-            E::And(and) => and.iter().all(|s| s.selects(l)),
-            E::Or(or) => or.iter().any(|s| s.selects(l)),
-            E::Key(s) => l.key().is_some_and(|k| s.selects(k)),
-            E::Target(s) => s.selects(l.target()),
+            E::And(and) => return and.iter().all(|s| Selector::<L>::selects(s, l.borrow())),
+            E::Or(or) => or.iter().any(|s| Selector::<L>::selects(s, l.borrow())),
+            E::Key(s) => l
+                .borrow()
+                .key()
+                .is_some_and(|k| Selector::<L::Key>::selects(s, k)),
+            E::Target(s) => Selector::<L::Target>::selects(s, l.borrow().target()),
         }
     }
 

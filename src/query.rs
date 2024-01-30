@@ -1,4 +1,5 @@
 mod selectors;
+use std::borrow::Borrow;
 use std::num::NonZeroUsize;
 
 pub use selectors::*;
@@ -70,7 +71,7 @@ impl Query {
 
 impl<L: Link + ?Sized> Selector<L> for Query {
     #[inline]
-    fn selects(&self, obj: &L) -> bool {
+    fn selects<O: Borrow<L>>(&self, obj: O) -> bool {
         self.selector.selects(obj)
     }
     #[inline]

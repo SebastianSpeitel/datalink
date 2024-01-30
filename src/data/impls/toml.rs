@@ -25,12 +25,42 @@ impl Data for Val {
             _ => Ok(()),
         }
     }
+
+    #[inline]
+    fn query_links(
+        &self,
+        links: &mut dyn Links,
+        query: &crate::query::Query,
+    ) -> Result<(), LinkError> {
+        match self {
+            Val::Table(table) => table.query_links(links, query),
+            Val::Array(array) => array.query_links(links, query),
+            _ => Ok(()),
+        }
+    }
 }
 
 impl Data for Table {
     #[inline]
     fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
         links.extend(self.iter().map(|(k, v)| (k.to_owned(), v.to_owned())))?;
+        Ok(())
+    }
+
+    #[inline]
+    fn query_links(
+        &self,
+        links: &mut dyn Links,
+        query: &crate::query::Query,
+    ) -> Result<(), LinkError> {
+        use crate::query::Selector;
+        links.extend(self.iter().filter_map(|(k, v)| {
+            if query.selects((k, v)) {
+                Some((k.to_owned(), v.to_owned()))
+            } else {
+                None
+            }
+        }))?;
         Ok(())
     }
 }
