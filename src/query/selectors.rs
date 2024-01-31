@@ -157,8 +157,47 @@ impl<D: Data + ?Sized> Selector<D> for DataSelector {
             E::NotId(id) => !d.borrow().get_id().is_some_and(|ref i| i == id),
             E::Not(s) => !s.selects(d),
             E::Unique => d.borrow().get_id().is_some(),
-            E::Linked(_s) => {
-                unimplemented!();
+            E::Linked(s) => {
+                struct Searcher<'a>(bool, &'a LinkSelector);
+                impl crate::links::Links for Searcher<'_> {
+                    #[inline]
+                    fn push(
+                        &mut self,
+                        target: crate::BoxedData,
+                        key: Option<crate::BoxedData>,
+                    ) -> crate::links::Result {
+                        if let Some(key) = key {
+                            self.push_keyed(target, key)
+                        } else {
+                            self.push_unkeyed(target)
+                        }
+                    }
+                    #[inline]
+                    fn push_keyed(
+                        &mut self,
+                        target: crate::BoxedData,
+                        key: crate::BoxedData,
+                    ) -> crate::links::Result {
+                        if self.1.selects((key, target)) {
+                            self.0 = true;
+                            crate::links::BREAK
+                        } else {
+                            crate::links::CONTINUE
+                        }
+                    }
+                    #[inline]
+                    fn push_unkeyed(&mut self, target: crate::BoxedData) -> crate::links::Result {
+                        if Selector::<crate::BoxedData>::selects(self.1, target) {
+                            self.0 = true;
+                            crate::links::BREAK
+                        } else {
+                            crate::links::CONTINUE
+                        }
+                    }
+                }
+                let mut searcher = Searcher(false, s);
+                let _ = d.borrow().provide_links(&mut searcher);
+                searcher.0
             }
             E::Text(s) => {
                 enum Matcher<'a> {
