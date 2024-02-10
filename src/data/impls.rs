@@ -36,6 +36,7 @@ macro_rules! impl_deref {
                 (**self).get_id()
             }
         }
+        #[cfg(feature = "unique")]
         impl<D: $crate::data::unique::Unique + ?Sized> $crate::data::unique::Unique for $ty {
             #[inline]
             fn id(&self) -> $crate::id::ID {
