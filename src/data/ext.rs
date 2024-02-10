@@ -1,7 +1,10 @@
 #[cfg(feature = "std")]
 use std::borrow::Cow;
 
-use crate::data::{format, BoxedData, Data};
+#[cfg(feature = "std")]
+use crate::data::BoxedData;
+
+use crate::data::{format, Data};
 use crate::links::{LinkError, Links, Result};
 use crate::query::Query;
 
