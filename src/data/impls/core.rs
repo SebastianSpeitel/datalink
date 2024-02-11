@@ -294,3 +294,58 @@ where
         }
     }
 }
+
+#[warn(clippy::missing_trait_methods)]
+impl<D: Data> Data for core::cell::OnceCell<D> {
+    #[inline]
+    fn provide_value<'d>(&'d self, builder: &mut dyn ValueBuiler<'d>) {
+        if let Some(d) = self.get() {
+            d.provide_value(builder);
+        }
+    }
+    #[inline]
+    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
+        if let Some(d) = self.get() {
+            d.provide_links(links)?;
+        }
+        Ok(())
+    }
+    #[inline]
+    fn query_links(
+        &self,
+        links: &mut dyn Links,
+        query: &crate::query::Query,
+    ) -> Result<(), LinkError> {
+        if let Some(d) = self.get() {
+            d.query_links(links, query)?;
+        }
+        Ok(())
+    }
+
+    #[inline]
+    fn get_id(&self) -> Option<crate::id::ID> {
+        if let Some(d) = self.get() {
+            d.get_id()
+        } else {
+            None
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::value::Value;
+
+    #[test]
+    fn once_cell() {
+        let cell = core::cell::OnceCell::new();
+
+        let val = Value::from_data(&cell);
+        assert!(val.as_enum().flatten().is_none());
+
+        cell.get_or_init(|| 100);
+        let val = Value::from_data(&cell);
+
+        assert_eq!(val.as_i32().unwrap(), 100);
+    }
+}
