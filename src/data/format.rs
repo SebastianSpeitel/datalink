@@ -122,7 +122,7 @@ pub trait Format {
         if let Some(key) = link.key() {
             Self::fmt(f, key, state)?;
             f.write_str(" -> ")?;
-        } else {
+        } else if f.alternate() {
             f.write_str("- ")?;
         }
         Self::fmt(f, link.target(), state)
