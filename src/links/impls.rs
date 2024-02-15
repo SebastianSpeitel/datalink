@@ -3,11 +3,31 @@ use std::{
     hash::BuildHasher,
 };
 
-use super::{Links, Result, BREAK, CONTINUE};
+use super::{Links, MaybeKeyed, Result, BREAK, CONTINUE};
 use crate::data::{
     unique::{Fixed, MaybeUnique},
     BoxedData,
 };
+
+impl Links for Vec<MaybeKeyed<BoxedData, BoxedData>> {
+    #[inline]
+    fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result {
+        self.push(MaybeKeyed::new(key, target));
+        CONTINUE
+    }
+
+    #[inline]
+    fn push_unkeyed(&mut self, target: BoxedData) -> Result {
+        self.push(MaybeKeyed::Unkeyed(target));
+        CONTINUE
+    }
+
+    #[inline]
+    fn push_keyed(&mut self, target: BoxedData, key: BoxedData) -> Result {
+        self.push(MaybeKeyed::Keyed(key, target));
+        CONTINUE
+    }
+}
 
 impl Links for Vec<(Option<BoxedData>, BoxedData)> {
     #[inline]

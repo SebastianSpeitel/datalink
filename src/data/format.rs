@@ -4,7 +4,7 @@ use std::{
     marker::PhantomData,
 };
 
-use crate::links::{Links, Result, CONTINUE};
+use crate::links::{Links, MaybeKeyed, Result, CONTINUE};
 use crate::value::ValueBuiler;
 use crate::{
     data::{BoxedData, Data},
@@ -176,13 +176,13 @@ impl<const SERIAL: bool, const MAX_DEPTH: u16, const VERBOSITY: i8> Format
         }
 
         if SERIAL {
-            let mut links = Vec::<(Option<BoxedData>, BoxedData)>::new();
+            let mut links = Vec::<MaybeKeyed<_, _>>::new();
             // Ignore errors
             let _ = data.provide_links(&mut links);
             let inner_state = state.saturating_sub(1);
-            set.entries(links.into_iter().map(|(key, target)| {
+            set.entries(links.into_iter().map(|link| {
                 let link = LinkEntry::<_, Self> {
-                    link: (key, target),
+                    link,
                     state: inner_state,
                 };
                 link
@@ -247,7 +247,6 @@ struct StreamingLinks<'a, 'b, 'c, F: Format> {
 impl<F: Format> Links for StreamingLinks<'_, '_, '_, F> {
     #[inline]
     fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result {
-        use crate::links::MaybeKeyed;
         let link = LinkEntry::<_, F> {
             link: MaybeKeyed::new(key, target),
             state: self.state,
@@ -354,6 +353,34 @@ impl ValueBuiler<'_> for fmt::DebugSet<'_, '_> {
 mod tests {
     use super::*;
     use crate::data::DataExt;
+
+    #[test]
+    fn keyed_and_unkeyed() {
+        struct Unkeyed;
+        struct Keyed;
+
+        impl Data for Unkeyed {
+            fn provide_links(&self, links: &mut dyn Links) -> Result<()> {
+                links.push_unkeyed(Box::new("foo") as BoxedData)?;
+                Ok(())
+            }
+        }
+
+        impl Data for Keyed {
+            fn provide_links(&self, links: &mut dyn Links) -> Result<()> {
+                links.push_keyed(Box::new(()) as BoxedData, Box::new("foo") as BoxedData)?;
+                Ok(())
+            }
+        }
+
+        let unkeyed = Unkeyed;
+        let keyed = Keyed;
+
+        let debug_unkeyed = FormattableData::<DEBUG, _>::from(&unkeyed).to_string();
+        let debug_keyed = FormattableData::<DEBUG, _>::from(&keyed).to_string();
+
+        assert_ne!(debug_unkeyed, debug_keyed);
+    }
 
     #[test]
     #[ignore]
