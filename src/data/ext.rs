@@ -224,7 +224,7 @@ pub trait DataExt: Data {
     #[allow(unused_variables)]
     #[inline]
     #[must_use]
-    fn format<F: format::DataFormatter>(&self) -> format::FormattableData<F, Self> {
+    fn format<F: format::Format>(&self) -> format::FormattableData<F, Self> {
         self.into()
     }
 }
