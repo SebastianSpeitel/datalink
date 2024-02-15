@@ -132,6 +132,87 @@ pub trait DataExt: Data {
     }
 
     #[inline]
+    #[must_use]
+    fn as_number(&self) -> Option<usize> {
+        enum NumberBuilder {
+            NotFound,
+            Found(usize),
+            Invalid,
+        }
+
+        impl NumberBuilder {
+            fn try_set(&mut self, val: usize) {
+                match self {
+                    Self::NotFound => *self = Self::Found(val),
+                    Self::Found(before) if *before == val => {}
+                    Self::Found(_) => *self = Self::Invalid,
+                    Self::Invalid => {}
+                }
+            }
+        }
+
+        impl crate::value::ValueBuiler<'_> for NumberBuilder {
+            fn bool(&mut self, value: bool) {
+                self.try_set(value as usize);
+            }
+            fn bytes(&mut self, _value: Cow<'_, [u8]>) {
+                *self = Self::Invalid;
+            }
+            fn f32(&mut self, value: f32) {
+                self.try_set(value as usize);
+            }
+            fn f64(&mut self, value: f64) {
+                self.try_set(value as usize);
+            }
+            fn i128(&mut self, value: i128) {
+                self.try_set(value as usize);
+            }
+            fn i16(&mut self, value: i16) {
+                self.try_set(value as usize);
+            }
+            fn i32(&mut self, value: i32) {
+                self.try_set(value as usize);
+            }
+            fn i64(&mut self, value: i64) {
+                self.try_set(value as usize);
+            }
+            fn i8(&mut self, value: i8) {
+                self.try_set(value as usize);
+            }
+            fn u16(&mut self, value: u16) {
+                self.try_set(value as usize);
+            }
+            fn u32(&mut self, value: u32) {
+                self.try_set(value as usize);
+            }
+            fn u64(&mut self, value: u64) {
+                self.try_set(value as usize);
+            }
+            fn u8(&mut self, value: u8) {
+                self.try_set(value as usize);
+            }
+            fn u128(&mut self, value: u128) {
+                self.try_set(value as usize);
+            }
+            fn str(&mut self, value: Cow<'_, str>) {
+                if let Ok(val) = value.parse() {
+                    self.try_set(val);
+                } else {
+                    *self = Self::Invalid;
+                }
+            }
+        }
+
+        let mut num = NumberBuilder::NotFound;
+        self.provide_value(&mut num);
+
+        match num {
+            NumberBuilder::Found(val) => Some(val),
+            _ => None,
+        }
+    }
+
+    #[inline]
     fn query<L: Links + Default>(&self, query: &Query) -> Result<L, LinkError> {
         let mut links = L::default();
 

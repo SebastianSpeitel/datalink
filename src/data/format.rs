@@ -14,7 +14,8 @@ use crate::{
 #[derive(Default, Debug)]
 pub struct FORMAT<const SERIAL: bool = false, const MAX_DEPTH: u16 = 6, const VERBOSITY: i8 = 0>;
 
-pub type COMPACT<const MAX_DEPTH: u16 = 6> = FORMAT<true, MAX_DEPTH, -1>;
+pub type COMPACT<const MAX_DEPTH: u16 = 6, const VERBOSITY: i8 = -1> =
+    FORMAT<true, MAX_DEPTH, VERBOSITY>;
 pub type DEBUG = FORMAT<true, 6, 1>;
 
 pub trait Format {
@@ -40,15 +41,30 @@ pub trait Format {
         // Format prefix
         Self::fmt_prefix(f, data)?;
 
-        if Self::verbosity() < 0 {
+        if Self::verbosity() <= -1 {
             let values = crate::value::Value::from_data(data);
-            if let Some(val) = values.as_enum() {
-                let mut has_links = None::<BoxedData>;
+            let no_links = std::cell::OnceCell::<bool>::new();
+
+            let link_check = || {
+                let mut link_check = None::<BoxedData>;
                 // Ignore errors
-                let _ = data.provide_links(&mut has_links);
-                if has_links.is_none() {
+                let _ = data.provide_links(&mut link_check);
+                link_check.is_none()
+            };
+
+            if Self::verbosity() <= -2 {
+                if let Some(num) = super::DataExt::as_number(&values) {
+                    if *no_links.get_or_init(link_check) {
+                        f.write_fmt(format_args!("{{{:?}}}", num))?;
+                        return Ok(());
+                    }
+                }
+            }
+
+            if let Some(val) = values.as_enum() {
+                if *no_links.get_or_init(link_check) {
                     if let Some(v) = val {
-                        f.write_fmt(format_args!("({v})"))?;
+                        f.write_fmt(format_args!("{{{v}}}"))?;
                     } else {
                         f.write_str("")?;
                     }
@@ -229,9 +245,33 @@ struct StreamingLinks<'a, 'b, 'c, F: Format> {
 }
 
 impl<F: Format> Links for StreamingLinks<'_, '_, '_, F> {
+    #[inline]
     fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result {
+        use crate::links::MaybeKeyed;
+        let link = LinkEntry::<_, F> {
+            link: MaybeKeyed::new(key, target),
+            state: self.state,
+        };
+        self.fmt_set.entry(&link);
+
+        CONTINUE
+    }
+
+    #[inline]
+    fn push_keyed(&mut self, target: BoxedData, key: BoxedData) -> Result {
         let link = LinkEntry::<_, F> {
             link: (key, target),
+            state: self.state,
+        };
+        self.fmt_set.entry(&link);
+
+        CONTINUE
+    }
+
+    #[inline]
+    fn push_unkeyed(&mut self, target: BoxedData) -> Result {
+        let link = LinkEntry::<_, F> {
+            link: target,
             state: self.state,
         };
         self.fmt_set.entry(&link);
@@ -244,8 +284,8 @@ impl ValueBuiler<'_> for fmt::DebugSet<'_, '_> {
     #[inline]
     fn bool(&mut self, value: bool) {
         match value {
-            true => self.entry(&"bool: true"),
-            false => self.entry(&"bool: false"),
+            true => self.entry(&format_args!("bool: true")),
+            false => self.entry(&format_args!("bool: false")),
         };
     }
     #[inline]
