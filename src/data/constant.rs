@@ -89,13 +89,14 @@ impl<const I: u128, D: Data + ?Sized> Data for Const<I, D> {
 
     #[inline(always)]
     fn get_id(&self) -> Option<ID> {
-        std::num::NonZeroU128::new(I).map(ID::new)
+        ID::try_new(I).ok()
     }
 }
 impl<const I: u128, D: Data + ?Sized> Unique for Const<I, D> {
     #[inline]
     fn id(&self) -> ID {
-        ID::new(unsafe { std::num::NonZeroU128::new_unchecked(I) })
+        debug_assert_ne!(I, 0, "ID must be non-zero");
+        unsafe { ID::new_unchecked(I) }
     }
 }
 
