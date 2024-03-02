@@ -10,6 +10,7 @@
 
 pub mod data;
 pub mod links;
+mod macros;
 pub mod query;
 pub mod value;
 #[cfg(feature = "well_known")]
@@ -29,6 +30,7 @@ pub mod prelude {
     pub use crate::data::Data;
     #[cfg(feature = "unique")]
     pub use crate::id::ID;
+    pub use crate::impl_data;
     #[cfg(feature = "derive")]
     pub use datalink_derive::Data;
 }
