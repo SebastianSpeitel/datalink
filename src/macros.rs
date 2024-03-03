@@ -53,8 +53,9 @@ macro_rules! impl_data {
             $(
                 #[inline]
                 fn provide_value<'d>(&'d self, builder: &mut dyn $crate::value::ValueBuiler<'d>) {
-                    use $crate::value::ValueType;
-                    $($val.provide_to(builder);)+
+                    $(
+                        $val.provide_value(builder);
+                    )+
                 }
             )?
 
