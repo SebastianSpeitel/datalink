@@ -46,11 +46,11 @@ pub trait Data {
         links: &mut dyn Links,
         query: &crate::query::Query,
     ) -> Result<(), LinkError> {
-        use crate::query::LinkSelector;
-        match query.selector() {
-            LinkSelector::None => Ok(()),
-            LinkSelector::Any => self.provide_links(links),
-            selector => self.provide_links(&mut links.filter(selector)),
+        use crate::query::LinkFilter;
+        match query.filter() {
+            LinkFilter::None => Ok(()),
+            LinkFilter::Any => self.provide_links(links),
+            filter => self.provide_links(&mut links.filter(filter)),
         }
     }
 

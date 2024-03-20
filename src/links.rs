@@ -2,7 +2,7 @@ use std::ops::ControlFlow;
 
 use crate::{
     data::{BoxedData, Data},
-    query::LinkSelector,
+    query::LinkFilter,
 };
 
 pub mod filtered;
@@ -124,9 +124,9 @@ pub trait LinksExt: Links {
     }
 
     #[inline]
-    fn filter<'s>(&mut self, selector: &'s LinkSelector) -> Filtered<'s, '_, Self> {
+    fn filter<'f>(&mut self, filter: &'f LinkFilter) -> Filtered<'f, '_, Self> {
         Filtered {
-            selector,
+            filter,
             inner: self,
         }
     }
