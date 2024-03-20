@@ -1,8 +1,15 @@
+pub trait WellKnown {
+    const ID: crate::id::ID;
+}
+
 macro_rules! impl_well_known {
-    ($val:ident, $type:ident $($args:tt)*) => {
+    ($val:ident, $type:ident, id=$id:literal $($args:tt)*) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
         pub struct $type;
-        $crate::impl_data!($type $($args)*);
+        impl $crate::well_known::WellKnown for $type {
+            const ID: $crate::id::ID = unsafe { $crate::id::ID::new_unchecked($id) };
+        }
+        $crate::impl_data!($type, id=<Self as $crate::well_known::WellKnown>::ID.into_raw() $($args)*);
         pub const $val: $type = $type;
     };
 }
