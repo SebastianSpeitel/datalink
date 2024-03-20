@@ -192,9 +192,9 @@ where
         links: &mut dyn Links,
         query: &crate::query::Query,
     ) -> Result<(), LinkError> {
-        use crate::query::Selector;
+        use crate::query::Filter;
         links.extend(self.iter().filter_map(|(k, v)| {
-            if query.selects((k, v)) {
+            if query.matches((k, v)) {
                 Some((k.to_owned(), v.to_owned()))
             } else {
                 None
@@ -221,9 +221,9 @@ where
         links: &mut dyn Links,
         query: &crate::query::Query,
     ) -> Result<(), LinkError> {
-        use crate::query::Selector;
+        use crate::query::Filter;
         links.extend(self.iter().filter_map(|v| {
-            if Selector::<T>::selects(query, v) {
+            if Filter::<T>::matches(query, v) {
                 Some(v.to_owned())
             } else {
                 None

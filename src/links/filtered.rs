@@ -1,20 +1,20 @@
 use super::{Links, Result, CONTINUE};
 use crate::data::BoxedData;
-use crate::query::{LinkSelector, Selector};
+use crate::query::{Filter, LinkFilter};
 
 #[derive(Debug)]
-pub struct Filtered<'s, 'l, L: Links + ?Sized> {
-    pub(super) selector: &'s LinkSelector,
+pub struct Filtered<'f, 'l, L: Links + ?Sized> {
+    pub(super) filter: &'f LinkFilter,
     pub(super) inner: &'l mut L,
 }
 
-impl<'s, 'l, L: Links + ?Sized> Links for Filtered<'s, 'l, L> {
+impl<'f, 'l, L: Links + ?Sized> Links for Filtered<'f, 'l, L> {
     #[inline]
     fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result {
         let selects = if let Some(key) = &key {
-            self.selector.selects((key.as_ref(), target.as_ref()))
+            self.filter.matches((key.as_ref(), target.as_ref()))
         } else {
-            Selector::<BoxedData>::selects(self.selector, &target)
+            Filter::<BoxedData>::matches(self.filter, &target)
         };
         if selects {
             self.inner.push(target, key)
@@ -24,7 +24,7 @@ impl<'s, 'l, L: Links + ?Sized> Links for Filtered<'s, 'l, L> {
     }
     #[inline]
     fn push_keyed(&mut self, target: BoxedData, key: BoxedData) -> Result {
-        if self.selector.selects((key.as_ref(), target.as_ref())) {
+        if self.filter.matches((key.as_ref(), target.as_ref())) {
             self.inner.push_keyed(target, key)
         } else {
             CONTINUE
@@ -32,7 +32,7 @@ impl<'s, 'l, L: Links + ?Sized> Links for Filtered<'s, 'l, L> {
     }
     #[inline]
     fn push_unkeyed(&mut self, target: BoxedData) -> Result {
-        if Selector::<BoxedData>::selects(self.selector, &target) {
+        if Filter::<BoxedData>::matches(self.filter, &target) {
             self.inner.push_unkeyed(target)
         } else {
             CONTINUE

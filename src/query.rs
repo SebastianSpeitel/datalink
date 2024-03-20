@@ -1,23 +1,23 @@
-mod selectors;
+mod filter;
 use std::borrow::Borrow;
 use std::num::NonZeroUsize;
 
-pub use selectors::*;
+pub use filter::*;
 
 use crate::data::BoxedData;
 use crate::links::Link;
 
 pub mod prelude {
-    pub use super::DataSelector as Data;
-    pub use super::LinkSelector as Link;
+    pub use super::DataFilter as Data;
+    pub use super::LinkFilter as Link;
     pub use super::Query;
-    pub use super::TextSelector as Text;
+    pub use super::TextFilter as Text;
 }
 
 #[derive(Default, Debug)]
 pub struct Query {
-    /// The selector to use to select links.
-    selector: LinkSelector,
+    /// The filter to apply to the links.
+    filter: LinkFilter,
     /// The maximum number of results to return.
     /// `None` means no limit.
     limit: Option<NonZeroUsize>,
@@ -26,9 +26,9 @@ pub struct Query {
 impl Query {
     #[inline]
     #[must_use]
-    pub const fn new(selector: LinkSelector) -> Self {
+    pub const fn new(filter: LinkFilter) -> Self {
         Query {
-            selector,
+            filter,
             limit: None,
         }
     }
@@ -43,7 +43,7 @@ impl Query {
     #[inline]
     #[must_use]
     pub fn build(mut self) -> Self {
-        Selector::<BoxedData>::optimize(&mut self.selector);
+        Filter::<BoxedData>::optimize(&mut self.filter);
         self
     }
 
@@ -55,8 +55,8 @@ impl Query {
 
     #[inline]
     #[must_use]
-    pub const fn selector(&self) -> &LinkSelector {
-        &self.selector
+    pub const fn filter(&self) -> &LinkFilter {
+        &self.filter
     }
 
     #[inline]
@@ -69,27 +69,27 @@ impl Query {
     }
 }
 
-impl<L: Link + ?Sized> Selector<L> for Query {
+impl<L: Link + ?Sized> Filter<L> for Query {
     #[inline]
-    fn selects<O: Borrow<L>>(&self, obj: O) -> bool {
-        self.selector.selects(obj)
+    fn matches<O: Borrow<L>>(&self, obj: O) -> bool {
+        self.filter.matches(obj)
     }
     #[inline]
     fn optimize(&mut self) {
-        Selector::<L>::optimize(&mut self.selector);
+        Filter::<L>::optimize(&mut self.filter);
     }
 }
 
-impl From<LinkSelector> for Query {
+impl From<LinkFilter> for Query {
     #[inline]
-    fn from(value: LinkSelector) -> Self {
+    fn from(value: LinkFilter) -> Self {
         Self::new(value)
     }
 }
 
-impl From<DataSelector> for Query {
+impl From<DataFilter> for Query {
     #[inline]
-    fn from(value: DataSelector) -> Self {
-        Self::new(LinkSelector::Target(value))
+    fn from(value: DataFilter) -> Self {
+        Self::new(LinkFilter::Target(value))
     }
 }
