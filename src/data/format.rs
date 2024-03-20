@@ -55,7 +55,7 @@ pub trait Format {
             if Self::verbosity() <= -2 {
                 if let Some(num) = super::DataExt::as_number(&values) {
                     if *no_links.get_or_init(link_check) {
-                        f.write_fmt(format_args!("{{{:?}}}", num))?;
+                        f.write_fmt(format_args!("{{{num:?}}}"))?;
                         return Ok(());
                     }
                 }
@@ -130,8 +130,8 @@ pub trait Format {
 
     #[allow(unused_variables)]
     #[inline]
-    fn fmt_values_into_set<'a, 'b>(
-        set: &mut fmt::DebugSet<'a, 'b>,
+    fn fmt_values_into_set(
+        set: &mut fmt::DebugSet<'_, '_>,
         data: &(impl Data + ?Sized),
         state: Self::State,
     ) {
@@ -140,8 +140,8 @@ pub trait Format {
 
     #[allow(unused_variables)]
     #[inline]
-    fn fmt_links_into_set<'a, 'b>(
-        set: &mut fmt::DebugSet<'a, 'b>,
+    fn fmt_links_into_set(
+        set: &mut fmt::DebugSet<'_, '_>,
         data: &(impl Data + ?Sized),
         state: Self::State,
     ) {
@@ -165,8 +165,8 @@ impl<const SERIAL: bool, const MAX_DEPTH: u16, const VERBOSITY: i8> Format
     }
 
     #[inline]
-    fn fmt_links_into_set<'a, 'b>(
-        set: &mut fmt::DebugSet<'a, 'b>,
+    fn fmt_links_into_set(
+        set: &mut fmt::DebugSet<'_, '_>,
         data: &(impl Data + ?Sized),
         state: Self::State,
     ) {
@@ -180,12 +180,9 @@ impl<const SERIAL: bool, const MAX_DEPTH: u16, const VERBOSITY: i8> Format
             // Ignore errors
             let _ = data.provide_links(&mut links);
             let inner_state = state.saturating_sub(1);
-            set.entries(links.into_iter().map(|link| {
-                let link = LinkEntry::<_, Self> {
-                    link,
-                    state: inner_state,
-                };
-                link
+            set.entries(links.into_iter().map(|link| LinkEntry::<_, Self> {
+                link,
+                state: inner_state,
             }));
         } else {
             let mut links = StreamingLinks::<'_, '_, '_, Self> {
@@ -282,69 +279,70 @@ impl<F: Format> Links for StreamingLinks<'_, '_, '_, F> {
 impl ValueBuiler<'_> for fmt::DebugSet<'_, '_> {
     #[inline]
     fn bool(&mut self, value: bool) {
-        match value {
-            true => self.entry(&format_args!("bool: true")),
-            false => self.entry(&format_args!("bool: false")),
-        };
+        if value {
+            self.entry(&format_args!("bool: true"));
+        } else {
+            self.entry(&format_args!("bool: false"));
+        }
     }
     #[inline]
     fn u8(&mut self, value: u8) {
-        self.entry(&format_args!("u8: {}", value));
+        self.entry(&format_args!("u8: {value}"));
     }
     #[inline]
     fn i8(&mut self, value: i8) {
-        self.entry(&format_args!("i8: {}", value));
+        self.entry(&format_args!("i8: {value}"));
     }
     #[inline]
     fn u16(&mut self, value: u16) {
-        self.entry(&format_args!("u16: {}", value));
+        self.entry(&format_args!("u16: {value}"));
     }
     #[inline]
     fn i16(&mut self, value: i16) {
-        self.entry(&format_args!("i16: {}", value));
+        self.entry(&format_args!("i16: {value}"));
     }
     #[inline]
     fn u32(&mut self, value: u32) {
-        self.entry(&format_args!("u32: {}", value));
+        self.entry(&format_args!("u32: {value}"));
     }
     #[inline]
     fn i32(&mut self, value: i32) {
-        self.entry(&format_args!("i32: {}", value));
+        self.entry(&format_args!("i32: {value}"));
     }
     #[inline]
     fn u64(&mut self, value: u64) {
-        self.entry(&format_args!("u64: {}", value));
+        self.entry(&format_args!("u64: {value}"));
     }
     #[inline]
     fn i64(&mut self, value: i64) {
-        self.entry(&format_args!("i64: {}", value));
+        self.entry(&format_args!("i64: {value}"));
     }
     #[inline]
     fn u128(&mut self, value: u128) {
-        self.entry(&format_args!("u128: {}", value));
+        self.entry(&format_args!("u128: {value}"));
     }
     #[inline]
     fn i128(&mut self, value: i128) {
-        self.entry(&format_args!("i128: {}", value));
+        self.entry(&format_args!("i128: {value}"));
     }
     #[inline]
     fn f32(&mut self, value: f32) {
-        self.entry(&format_args!("f32: {}", value));
+        self.entry(&format_args!("f32: {value}"));
     }
     #[inline]
     fn f64(&mut self, value: f64) {
-        self.entry(&format_args!("f64: {}", value));
+        self.entry(&format_args!("f64: {value}"));
     }
     #[inline]
     fn str(&mut self, value: Cow<'_, str>) {
         let value: &str = &value;
-        self.entry(&format_args!("str: {:?}", value));
+        self.entry(&format_args!("str: {value:?}"));
     }
     #[inline]
     fn bytes(&mut self, value: Cow<'_, [u8]>) {
         match String::from_utf8(value.to_vec()) {
-            Ok(s) => self.entry(&format_args!("bytes: b{:?}", s)),
-            Err(_) => self.entry(&format_args!("bytes: {:?}", value)),
+            Ok(s) => self.entry(&format_args!("bytes: b{s:?}")),
+            Err(_) => self.entry(&format_args!("bytes: {value:?}")),
         };
     }
 }

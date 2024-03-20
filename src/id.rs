@@ -99,6 +99,7 @@ impl ID<NonZeroU128> {
     /// assert_eq!(id.into_raw().get(), 42);
     /// ```
     #[inline]
+    #[must_use]
     pub const unsafe fn new_unchecked(id: u128) -> Self {
         Self::from_raw(NonZeroU128::new_unchecked(id))
     }

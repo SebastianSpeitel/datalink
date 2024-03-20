@@ -292,7 +292,6 @@ pub trait DataExt: Data {
     }
 
     #[inline]
-    #[must_use]
     fn collect_links<L: Links + Default>(&self) -> Result<L, LinkError> {
         let mut links = L::default();
         self.provide_links(&mut links)?;

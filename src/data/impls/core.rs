@@ -239,7 +239,7 @@ impl<D: Data> Data for Option<D> {
 
     #[inline]
     fn get_id(&self) -> Option<crate::id::ID> {
-        self.as_ref().and_then(|d| d.get_id())
+        self.as_ref().and_then(Data::get_id)
     }
 }
 
