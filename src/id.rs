@@ -54,22 +54,6 @@ impl<T> ID<T> {
         id.try_into().map(Self::from_raw)
     }
 
-    /// Convenience method for creating an `ID` from a type that only has a `TryInto<T>` implementation
-    ///
-    /// # Safety
-    /// The caller must ensure that `U::try_into` never fails
-    ///
-    /// ```rust
-    /// use datalink::id::ID;
-    ///
-    /// // NonZeroU128 implements TryFrom<u128>
-    /// let id: ID = unsafe { ID::new_unchecked(42) };
-    /// ```
-    #[inline]
-    pub unsafe fn new_unchecked<U: TryInto<T>>(id: U) -> Self {
-        Self::from_raw(id.try_into().unwrap_unchecked())
-    }
-
     /// Create a new `ID` from a raw `T` value
     ///
     /// # Note
@@ -90,6 +74,33 @@ impl<T> ID<T> {
     #[inline]
     pub fn into_raw(self) -> T {
         self.0
+    }
+
+    /// Get a reference to the raw `T` value
+    #[inline]
+    pub fn as_raw(&self) -> &T {
+        &self.0
+    }
+}
+
+impl ID<NonZeroU128> {
+    /// Create a new `ID` from a raw `u128` value
+    ///
+    /// # Safety
+    /// The value must not be zero
+    ///
+    /// # Note
+    /// Can be used in const contexts
+    ///
+    /// ```rust
+    /// use datalink::id::ID;
+    ///
+    /// const id: ID = unsafe { ID::new_unchecked(42) };
+    /// assert_eq!(id.into_raw().get(), 42);
+    /// ```
+    #[inline]
+    pub const unsafe fn new_unchecked(id: u128) -> Self {
+        Self::from_raw(NonZeroU128::new_unchecked(id))
     }
 }
 
