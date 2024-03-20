@@ -1,4 +1,3 @@
-#[cfg(feature = "std")]
 use std::borrow::Cow;
 
 #[cfg(feature = "std")]
@@ -115,7 +114,6 @@ pub trait DataExt: Data {
 
     #[inline]
     #[must_use]
-    #[cfg(feature = "std")]
     fn as_str(&self) -> Option<Cow<str>> {
         let mut value = None;
         self.provide_value(&mut value);
@@ -124,7 +122,6 @@ pub trait DataExt: Data {
 
     #[inline]
     #[must_use]
-    #[cfg(feature = "std")]
     fn as_bytes(&self) -> Option<Cow<[u8]>> {
         let mut value = None;
         self.provide_value(&mut value);
