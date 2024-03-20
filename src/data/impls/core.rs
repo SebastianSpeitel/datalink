@@ -1,6 +1,7 @@
 use crate::data::Data;
 use crate::links::{LinkError, Links};
 use crate::value::ValueBuiler;
+use std::borrow::Cow;
 
 impl Data for () {}
 
@@ -120,6 +121,13 @@ impl Data for f64 {
     #[inline]
     fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
         value.f64(*self);
+    }
+}
+
+impl Data for str {
+    #[inline]
+    fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
+        value.str(Cow::Borrowed(self));
     }
 }
 

@@ -14,13 +14,6 @@ impl Data for String {
     }
 }
 
-impl Data for str {
-    #[inline]
-    fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-        value.str(Cow::Borrowed(self));
-    }
-}
-
 impl Data for char {
     #[inline]
     fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
