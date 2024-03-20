@@ -4,9 +4,6 @@ use crate::data::Data;
 use crate::links::{LinkError, Links, LinksExt};
 use crate::value::ValueBuiler;
 
-#[cfg(feature = "unique")]
-use crate::data::constant::Const;
-
 impl Data for String {
     #[inline]
     fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
@@ -87,15 +84,13 @@ mod net {
     use super::*;
     use ::std::net;
 
-    #[cfg(not(feature = "unique"))]
-    const IP_KEY: &str = "ip";
-    #[cfg(not(feature = "unique"))]
-    const PORT_KEY: &str = "port";
+    #[cfg(not(feature = "well_known"))]
+    const IP: &str = "ip";
+    #[cfg(not(feature = "well_known"))]
+    const PORT: &str = "port";
 
-    #[cfg(feature = "unique")]
-    const IP_KEY: Const<0x10000, &str> = Const::new("ip");
-    #[cfg(feature = "unique")]
-    const PORT_KEY: Const<0x10001, &str> = Const::new("port");
+    #[cfg(feature = "well_known")]
+    use crate::well_known::net::{IP, PORT};
 
     impl Data for net::Ipv4Addr {
         #[inline]
@@ -137,8 +132,8 @@ mod net {
 
         #[inline]
         fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-            links.push_keyed(Box::new(self.ip().to_owned()), Box::new(IP_KEY))?;
-            links.push_keyed(Box::new(self.port()), Box::new(PORT_KEY))?;
+            links.push_keyed(Box::new(self.ip().to_owned()), Box::new(IP))?;
+            links.push_keyed(Box::new(self.port()), Box::new(PORT))?;
 
             Ok(())
         }
@@ -152,8 +147,8 @@ mod net {
 
         #[inline]
         fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-            links.push_keyed(Box::new(self.ip().to_owned()), Box::new(IP_KEY))?;
-            links.push_keyed(Box::new(self.port()), Box::new(PORT_KEY))?;
+            links.push_keyed(Box::new(self.ip().to_owned()), Box::new(IP))?;
+            links.push_keyed(Box::new(self.port()), Box::new(PORT))?;
 
             Ok(())
         }

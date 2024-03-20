@@ -26,6 +26,20 @@ impl_well_known!(
     id = 0x734BFA09_662B_477C_8B61_7E85B6C47648,
     value = "key"
 );
+pub mod net {
+    impl_well_known!(
+        IP,
+        IPType,
+        id = 0x734BFA09_662B_477C_8B61_7E85B6C47649,
+        value = "ip"
+    );
+    impl_well_known!(
+        PORT,
+        PortType,
+        id = 0x734BFA09_662B_477C_8B61_7E85B6C4764A,
+        value = "port"
+    );
+}
 
 #[cfg(test)]
 mod tests {
