@@ -1,17 +1,19 @@
-mod filter;
-use std::borrow::Borrow;
 use std::num::NonZeroUsize;
 
-pub use filter::*;
+pub use filters::{Filter, Optimizable};
 
-use crate::data::BoxedData;
+mod datafilter;
+mod linkfilter;
+pub use datafilter::DataFilter;
+pub use linkfilter::LinkFilter;
+
 use crate::links::Link;
 
 pub mod prelude {
     pub use super::DataFilter as Data;
     pub use super::LinkFilter as Link;
     pub use super::Query;
-    pub use super::TextFilter as Text;
+    pub use filters::prelude::*;
 }
 
 #[derive(Default, Debug)]
@@ -43,7 +45,7 @@ impl Query {
     #[inline]
     #[must_use]
     pub fn build(mut self) -> Self {
-        Filter::<BoxedData>::optimize(&mut self.filter);
+        self.filter.optimize();
         self
     }
 
@@ -71,12 +73,19 @@ impl Query {
 
 impl<L: Link + ?Sized> Filter<L> for Query {
     #[inline]
-    fn matches<O: Borrow<L>>(&self, obj: O) -> bool {
-        self.filter.matches(obj)
+    fn matches(&self, link: &L) -> bool {
+        self.filter.matches(link)
     }
+}
+
+impl Optimizable for Query {
     #[inline]
     fn optimize(&mut self) {
-        Filter::<L>::optimize(&mut self.filter);
+        self.filter.optimize();
+    }
+    #[inline]
+    fn as_bool(&self) -> Option<bool> {
+        self.filter.as_bool()
     }
 }
 

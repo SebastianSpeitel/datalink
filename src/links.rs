@@ -254,6 +254,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::data::DataExt;
+
     use super::*;
 
     #[test]
@@ -292,5 +294,24 @@ mod tests {
 
         let target = Some(42u32);
         links.push_link(target).unwrap();
+    }
+
+    #[test]
+    fn filter_query() {
+        let mut links: Vec<BoxedData> = Vec::new();
+        let filter = {
+            use crate::query::prelude::*;
+            Data::text("foo")
+        };
+
+        let mut filtered = links.filter(&filter);
+
+        filtered.push_unkeyed(Box::new("bar")).unwrap();
+        filtered.push_unkeyed(Box::new("foo")).unwrap();
+
+        drop(filtered);
+
+        assert_eq!(links.len(), 1);
+        assert_eq!(DataExt::as_str(&links[0]).unwrap(), "foo");
     }
 }

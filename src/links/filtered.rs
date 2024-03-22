@@ -24,7 +24,7 @@ where
     #[inline]
     fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result {
         let matched = if let Some(key) = &key {
-            self.filter.matches((key.as_ref(), target.as_ref()))
+            self.filter.matches_owned((key.as_ref(), target.as_ref()))
         } else {
             <F as Filter<dyn Data>>::matches(self.filter, target.as_ref())
         };
@@ -36,7 +36,7 @@ where
     }
     #[inline]
     fn push_keyed(&mut self, target: BoxedData, key: BoxedData) -> Result {
-        if self.filter.matches((key.as_ref(), target.as_ref())) {
+        if self.filter.matches_owned((key.as_ref(), target.as_ref())) {
             self.inner.push_keyed(target, key)
         } else {
             CONTINUE
