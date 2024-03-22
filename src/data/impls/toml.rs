@@ -55,7 +55,7 @@ impl Data for Table {
     ) -> Result<(), LinkError> {
         use crate::query::Filter;
         links.extend(self.iter().filter_map(|(k, v)| {
-            if query.matches((k, v)) {
+            if query.matches_owned((k, v)) {
                 Some((k.to_owned(), v.to_owned()))
             } else {
                 None
