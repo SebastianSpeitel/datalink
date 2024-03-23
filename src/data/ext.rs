@@ -298,6 +298,17 @@ pub trait DataExt: Data {
         Ok(links)
     }
 
+    #[cfg(feature = "well_known")]
+    #[inline]
+    fn tags(&self) -> Result<Vec<BoxedData>, LinkError> {
+        use crate::{query::prelude::*, well_known::WellKnown};
+        const TAG_QUERY: Query = {
+            use crate::well_known::TagType;
+            Query::new(Link::Key(Data::Id(TagType::ID)))
+        };
+        self.query(&TAG_QUERY)
+    }
+
     #[allow(unused_variables)]
     #[inline]
     #[must_use]
