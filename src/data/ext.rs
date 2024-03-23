@@ -309,6 +309,17 @@ pub trait DataExt: Data {
         self.query(&TAG_QUERY)
     }
 
+    #[cfg(all(feature = "well_known", feature = "unique"))]
+    fn is_tagged_with(&self, tag: &impl crate::data::unique::Unique) -> Result<bool, LinkError> {
+        let query = {
+            use crate::query::prelude::*;
+            use crate::well_known::{TagType, WellKnown};
+            Query::new(Link::Key(Data::Id(TagType::ID)) & Link::target(Data::eq(tag))).build()
+        };
+
+        Ok(self.query::<Option<BoxedData>>(&query)?.is_some())
+    }
+
     #[allow(unused_variables)]
     #[inline]
     #[must_use]
