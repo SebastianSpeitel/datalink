@@ -1,13 +1,13 @@
+#[cfg(feature = "unique")]
 use std::{
     collections::{HashMap, HashSet},
     hash::BuildHasher,
 };
 
 use super::{Links, MaybeKeyed, Result, BREAK, CONTINUE};
-use crate::data::{
-    unique::{Fixed, MaybeUnique},
-    BoxedData,
-};
+#[cfg(feature = "unique")]
+use crate::data::unique::{Fixed, MaybeUnique};
+use crate::data::BoxedData;
 
 impl Links for Vec<MaybeKeyed<BoxedData, BoxedData>> {
     #[inline]
@@ -113,6 +113,7 @@ impl Links for Option<BoxedData> {
     }
 }
 
+#[cfg(feature = "unique")]
 impl<S: BuildHasher> Links for HashMap<Fixed<BoxedData>, BoxedData, S> {
     #[inline]
     fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result {
@@ -136,6 +137,7 @@ impl<S: BuildHasher> Links for HashMap<Fixed<BoxedData>, BoxedData, S> {
     }
 }
 
+#[cfg(feature = "unique")]
 impl<S: BuildHasher> Links for HashSet<Fixed<BoxedData>, S> {
     #[inline]
     fn push(&mut self, target: BoxedData, _key: Option<BoxedData>) -> Result {
