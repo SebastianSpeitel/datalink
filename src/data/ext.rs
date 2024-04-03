@@ -130,69 +130,71 @@ pub trait DataExt: Data {
 
     #[inline]
     #[must_use]
-    fn as_number(&self) -> Option<usize> {
+    fn as_number(&self) -> Option<isize> {
         enum NumberBuilder {
             NotFound,
-            Found(usize),
+            Found(isize),
             Invalid,
         }
 
         impl NumberBuilder {
-            fn try_set(&mut self, val: usize) {
-                match self {
-                    Self::NotFound => *self = Self::Found(val),
-                    Self::Found(before) if *before == val => {}
-                    Self::Found(_) => *self = Self::Invalid,
-                    Self::Invalid => {}
+            #[inline]
+            fn try_set(&mut self, val: impl TryInto<isize>) {
+                match (&self, val.try_into()) {
+                    (Self::NotFound, Ok(v)) => *self = Self::Found(v),
+                    (Self::Found(before), Ok(v)) if *before == v => {}
+                    _ => *self = Self::Invalid,
                 }
             }
         }
 
         impl crate::value::ValueBuiler<'_> for NumberBuilder {
             fn bool(&mut self, value: bool) {
-                self.try_set(value as usize);
+                self.try_set(value);
             }
             fn bytes(&mut self, _value: Cow<'_, [u8]>) {
                 *self = Self::Invalid;
             }
+            #[allow(clippy::cast_possible_truncation)]
             fn f32(&mut self, value: f32) {
-                self.try_set(value as usize);
+                self.try_set(value as isize);
             }
+            #[allow(clippy::cast_possible_truncation)]
             fn f64(&mut self, value: f64) {
-                self.try_set(value as usize);
+                self.try_set(value as isize);
             }
             fn i128(&mut self, value: i128) {
-                self.try_set(value as usize);
+                self.try_set(value);
             }
             fn i16(&mut self, value: i16) {
-                self.try_set(value as usize);
+                self.try_set(value);
             }
             fn i32(&mut self, value: i32) {
-                self.try_set(value as usize);
+                self.try_set(value);
             }
             fn i64(&mut self, value: i64) {
-                self.try_set(value as usize);
+                self.try_set(value);
             }
             fn i8(&mut self, value: i8) {
-                self.try_set(value as usize);
+                self.try_set(value);
             }
             fn u16(&mut self, value: u16) {
-                self.try_set(value as usize);
+                self.try_set(value);
             }
             fn u32(&mut self, value: u32) {
-                self.try_set(value as usize);
+                self.try_set(value);
             }
             fn u64(&mut self, value: u64) {
-                self.try_set(value as usize);
+                self.try_set(value);
             }
             fn u8(&mut self, value: u8) {
-                self.try_set(value as usize);
+                self.try_set(value);
             }
             fn u128(&mut self, value: u128) {
-                self.try_set(value as usize);
+                self.try_set(value);
             }
             fn str(&mut self, value: Cow<'_, str>) {
-                if let Ok(val) = value.parse() {
+                if let Ok(val) = value.parse::<isize>() {
                     self.try_set(val);
                 } else {
                     *self = Self::Invalid;
