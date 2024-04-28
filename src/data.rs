@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use crate::{
     links::{LinkError, Links, LinksExt},
-    value::ValueBuiler,
+    value::{Req, Unknown, ValueRequest},
 };
 
 #[cfg(feature = "unique")]
@@ -31,7 +31,9 @@ pub type BoxedData = Box<dyn Data>;
 pub trait Data {
     #[allow(unused_variables)]
     #[inline]
-    fn provide_value<'d>(&'d self, builder: &mut dyn ValueBuiler<'d>) {}
+    fn provide_value<'d>(&self, request: ValueRequest<'d>) {
+        self.try_provide_requested(request);
+    }
 
     #[allow(unused_variables)]
     #[inline]
@@ -59,13 +61,28 @@ pub trait Data {
     fn get_id(&self) -> Option<crate::id::ID> {
         None
     }
+
+    #[inline]
+    #[allow(unused_variables)]
+    fn try_provide_requested<'d, R: Req>(
+        &self,
+        request: impl AsMut<ValueRequest<'d, R>>,
+    ) -> Result<(), ()>
+    where
+        Self: Sized,
+    {
+        Err(())
+    }
 }
 
 #[warn(clippy::missing_trait_methods)]
 impl<D: Data + ?Sized> Data for &D {
     #[inline]
-    fn provide_value<'d>(&'d self, builder: &mut dyn ValueBuiler<'d>) {
-        (*self).provide_value(builder)
+    fn provide_value<'d>(&self, mut request: ValueRequest<'d>) {
+        if (*self).try_provide_requested(&mut request).is_ok() {
+            return;
+        }
+        (**self).provide_value(request);
     }
     #[inline]
     fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {

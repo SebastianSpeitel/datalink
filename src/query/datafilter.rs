@@ -150,22 +150,26 @@ impl<D: Data + ?Sized> Filter<D> for DataFilter {
                 searcher.0
             }
             E::Text(f) => {
+                // todo: use new rr framework
                 enum Matcher<'a> {
                     Found,
                     Selecting(&'a TextFilter),
                 }
-                impl crate::value::ValueBuiler<'_> for Matcher<'_> {
-                    fn str(&mut self, value: std::borrow::Cow<'_, str>) {
-                        match self {
-                            Matcher::Selecting(f) if f.matches(value.as_ref()) => {
-                                *self = Matcher::Found
+                impl crate::value::ValueReceiver for Matcher<'_> {
+                    #[inline]
+                    fn str(&mut self, value: &str) {
+                        if let Matcher::Selecting(f) = self {
+                            if f.matches(value) {
+                                *self = Matcher::Found;
                             }
-                            _ => {}
                         }
                     }
                 }
+
                 let mut m = Matcher::Selecting(f);
-                d.borrow().provide_value(&mut m);
+                d.borrow().provide_value(crate::value::ValueRequest::new(
+                    &mut m as &mut dyn crate::value::ValueReceiver,
+                ));
                 matches!(m, Matcher::Found)
             }
         }

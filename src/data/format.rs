@@ -1,15 +1,17 @@
 use std::{
-    borrow::Cow,
     fmt::{self, Debug, Display},
     marker::PhantomData,
 };
 
-use crate::links::{Links, MaybeKeyed, Result, CONTINUE};
-use crate::value::ValueBuiler;
 use crate::{
     data::{BoxedData, Data},
     links::Link,
 };
+use crate::{
+    links::{Links, MaybeKeyed, Result, CONTINUE},
+    rr::Req,
+};
+use crate::{rr::Unknown, value::ValueRequest};
 
 #[derive(Default, Debug)]
 pub struct FORMAT<const SERIAL: bool = false, const MAX_DEPTH: u16 = 6, const VERBOSITY: i8 = 0>;
@@ -42,7 +44,10 @@ pub trait Format {
         Self::fmt_prefix(f, data)?;
 
         if Self::verbosity() <= -1 {
-            let values = crate::value::Value::from_data(data);
+            let mut values = crate::value::AllValues::default();
+            data.provide_value(crate::rr::Request::new(
+                &mut values as &mut dyn crate::rr::Receiver,
+            ));
             let no_links = std::cell::OnceCell::<bool>::new();
 
             let link_check = || {
@@ -52,22 +57,18 @@ pub trait Format {
                 link_check.is_none()
             };
 
-            if Self::verbosity() <= -2 {
-                if let Some(num) = super::DataExt::as_number(&values) {
-                    if *no_links.get_or_init(link_check) {
-                        f.write_fmt(format_args!("{{{num:?}}}"))?;
-                        return Ok(());
-                    }
-                }
-            }
+            // if Self::verbosity() <= -2 {
+            //     if let Some(num) = super::DataExt::as_number(&values) {
+            //         if *no_links.get_or_init(link_check) {
+            //             f.write_fmt(format_args!("{{{num:?}}}"))?;
+            //             return Ok(());
+            //         }
+            //     }
+            // }
 
-            if let Some(val) = values.as_enum() {
+            if let Some(val) = values.single() {
                 if *no_links.get_or_init(link_check) {
-                    if let Some(v) = val {
-                        f.write_fmt(format_args!("{{{v}}}"))?;
-                    } else {
-                        f.write_str("")?;
-                    }
+                    f.write_fmt(format_args!("{{{val}}}"))?;
                     return Ok(());
                 }
             }
@@ -135,7 +136,8 @@ pub trait Format {
         data: &(impl Data + ?Sized),
         state: Self::State,
     ) {
-        data.provide_value(set);
+        let request = ValueRequest::new(set as &mut dyn crate::value::ValueReceiver);
+        data.provide_value(request);
     }
 
     #[allow(unused_variables)]
@@ -195,29 +197,31 @@ impl<const SERIAL: bool, const MAX_DEPTH: u16, const VERBOSITY: i8> Format
     }
 }
 
-pub struct FormattableData<'d, F: Format, D: Data + ?Sized> {
+pub struct FormattableData<'d, F: Format, D: Data<R> + ?Sized, R: Req = Unknown> {
     data: &'d D,
     phantom: PhantomData<F>,
+    phantom_req: PhantomData<R>,
 }
 
-impl<'d, F: Format, D: Data + ?Sized> From<&'d D> for FormattableData<'d, F, D> {
+impl<'d, F: Format, D: Data<R> + ?Sized, R: Req> From<&'d D> for FormattableData<'d, F, D, R> {
     #[inline]
     fn from(data: &'d D) -> Self {
         Self {
             data,
             phantom: PhantomData,
+            phantom_req: PhantomData,
         }
     }
 }
 
-impl<F: Format, D: Data + ?Sized> Display for FormattableData<'_, F, D> {
+impl<F: Format, D: Data<R> + Data + ?Sized, R: Req> Display for FormattableData<'_, F, D, R> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         F::fmt(f, self.data, F::init_state())
     }
 }
 
-impl<F: Format, D: Data + ?Sized> Debug for FormattableData<'_, F, D> {
+impl<F: Format, D: Data<R> + Data + ?Sized, R: Req> Debug for FormattableData<'_, F, D, R> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         F::fmt(f, self.data, F::init_state())
@@ -276,7 +280,8 @@ impl<F: Format> Links for StreamingLinks<'_, '_, '_, F> {
     }
 }
 
-impl ValueBuiler<'_> for fmt::DebugSet<'_, '_> {
+#[warn(clippy::missing_trait_methods)]
+impl crate::rr::Receiver for fmt::DebugSet<'_, '_> {
     #[inline]
     fn bool(&mut self, value: bool) {
         if value {
@@ -333,17 +338,43 @@ impl ValueBuiler<'_> for fmt::DebugSet<'_, '_> {
     fn f64(&mut self, value: f64) {
         self.entry(&format_args!("f64: {value}"));
     }
+
     #[inline]
-    fn str(&mut self, value: Cow<'_, str>) {
-        let value: &str = &value;
+    fn char(&mut self, value: char) {
+        self.entry(&format_args!("char: {value:?}"));
+    }
+
+    #[inline]
+    fn str(&mut self, value: &str) {
         self.entry(&format_args!("str: {value:?}"));
     }
+
     #[inline]
-    fn bytes(&mut self, value: Cow<'_, [u8]>) {
+    fn str_owned(&mut self, value: String) {
+        self.str(&value);
+    }
+
+    #[inline]
+    fn bytes(&mut self, value: &[u8]) {
         match String::from_utf8(value.to_vec()) {
             Ok(s) => self.entry(&format_args!("bytes: b{s:?}")),
             Err(_) => self.entry(&format_args!("bytes: {value:?}")),
         };
+    }
+
+    #[inline]
+    fn bytes_owned(&mut self, value: Vec<u8>) {
+        self.bytes(&value);
+    }
+
+    #[inline]
+    fn other_boxed(&mut self, value: Box<dyn std::any::Any>) {
+        self.entry(&format_args!("other: {value:?}"));
+    }
+
+    #[inline]
+    fn other_ref(&mut self, value: &dyn std::any::Any) {
+        self.entry(&format_args!("other: {value:?}"));
     }
 }
 

@@ -1,54 +1,44 @@
-use ::std::{borrow::Cow, collections::HashMap};
+use ::std::collections::HashMap;
 
 use crate::data::Data;
 use crate::links::{LinkError, Links, LinksExt};
-use crate::value::ValueBuiler;
+use crate::rr::{Req, Request};
 
-impl Data for String {
+impl<R: Req> Data<R> for String {
     #[inline]
-    fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-        value.str(Cow::Borrowed(self));
+    fn provide_value<'d>(&self, mut request: Request<'d, R>) {
+        request.provide_ref(self);
     }
 }
-
-impl Data for char {
-    #[inline]
-    fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-        value.u32(*self as u32);
-        value.str(Cow::Owned(self.to_string()));
-    }
-}
-
-impl Data for [u8] {
-    #[inline]
-    fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-        value.bytes(Cow::Borrowed(self));
-    }
-}
-
 mod path {
     use super::*;
     #[cfg(target_os = "linux")]
     use ::std::os::unix::ffi::OsStrExt;
     use ::std::path::{Path, PathBuf};
 
-    impl Data for PathBuf {
+    impl<R: Req> Data<R> for PathBuf {
         #[inline]
-        fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-            value.str(self.to_string_lossy());
+        fn provide_value<'d>(&self, mut request: Request<'d, R>) {
+            request.provide_ref(self);
+
+            if R::requests::<str>() {
+                request.provide_str(self.to_string_lossy().as_ref());
+            }
 
             #[cfg(target_os = "linux")]
-            value.bytes(Cow::Borrowed(OsStrExt::as_bytes(self.as_os_str())));
+            request.provide_bytes(OsStrExt::as_bytes(self.as_os_str()));
         }
     }
 
-    impl Data for Path {
+    impl<R: Req> Data<R> for Path {
         #[inline]
-        fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-            value.str(self.to_string_lossy());
+        fn provide_value<'d>(&self, mut request: Request<'d, R>) {
+            if R::requests::<str>() {
+                request.provide_str(self.to_string_lossy().as_ref());
+            }
 
             #[cfg(target_os = "linux")]
-            value.bytes(Cow::Borrowed(OsStrExt::as_bytes(self.as_os_str())));
+            request.provide_bytes(OsStrExt::as_bytes(self.as_os_str()));
         }
     }
 }
@@ -59,23 +49,29 @@ mod ffi {
     #[cfg(target_os = "linux")]
     use ::std::os::unix::ffi::OsStrExt;
 
-    impl Data for OsString {
+    impl<R: Req> Data<R> for OsString {
         #[inline]
-        fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-            value.str(self.to_string_lossy());
+        fn provide_value<'d>(&self, mut request: Request<'d, R>) {
+            request.provide_ref(self);
+
+            if R::requests::<str>() {
+                request.provide_str(self.to_string_lossy().as_ref());
+            }
 
             #[cfg(target_os = "linux")]
-            value.bytes(Cow::Borrowed(OsStrExt::as_bytes(self.as_os_str())));
+            request.provide_bytes(OsStrExt::as_bytes(self.as_os_str()));
         }
     }
 
-    impl Data for OsStr {
+    impl<R: Req> Data<R> for OsStr {
         #[inline]
-        fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-            value.str(self.to_string_lossy());
+        fn provide_value<'d>(&self, mut request: Request<'d, R>) {
+            if R::requests::<str>() {
+                request.provide_str(self.to_string_lossy().as_ref());
+            }
 
             #[cfg(target_os = "linux")]
-            value.bytes(Cow::Borrowed(OsStrExt::as_bytes(self)));
+            request.provide_bytes(OsStrExt::as_bytes(self));
         }
     }
 }
@@ -92,42 +88,52 @@ mod net {
     #[cfg(feature = "well_known")]
     use crate::well_known::net::{IP, PORT};
 
-    impl Data for net::Ipv4Addr {
+    impl<R: Req> Data<R> for net::Ipv4Addr {
         #[inline]
-        fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-            value.str(self.to_string().into());
+        fn provide_value<'d>(&self, mut request: Request<'d, R>) {
+            request.provide_ref(self);
+            if R::requests::<String>() {
+                request.provide_str_owned(self.to_string());
+            }
         }
     }
 
-    impl Data for net::Ipv6Addr {
+    impl<R: Req> Data<R> for net::Ipv6Addr {
         #[inline]
-        fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-            value.str(self.to_string().into());
+        fn provide_value<'d>(&self, mut request: Request<'d, R>) {
+            request.provide_ref(self);
+            if R::requests::<String>() {
+                request.provide_str_owned(self.to_string());
+            }
         }
     }
 
-    impl Data for net::IpAddr {
+    impl<R: Req> Data<R> for net::IpAddr {
         #[inline]
-        fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
+        fn provide_value<'d>(&self, request: Request<'d, R>) {
             match self {
-                net::IpAddr::V4(ip) => ip.provide_value(value),
-                net::IpAddr::V6(ip) => ip.provide_value(value),
+                net::IpAddr::V4(ip) => ip.provide_value(request),
+                net::IpAddr::V6(ip) => ip.provide_value(request),
             }
         }
 
         #[inline]
         fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
             match self {
-                net::IpAddr::V4(ip) => ip.provide_links(links),
-                net::IpAddr::V6(ip) => ip.provide_links(links),
+                net::IpAddr::V4(ip) => Data::<R>::provide_links(ip, links),
+                net::IpAddr::V6(ip) => Data::<R>::provide_links(ip, links),
             }
         }
     }
 
-    impl Data for net::SocketAddrV4 {
+    impl<R: Req> Data<R> for net::SocketAddrV4 {
         #[inline]
-        fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-            value.str(self.to_string().into());
+        fn provide_value<'d>(&self, mut request: Request<'d, R>) {
+            request.provide_ref(self);
+
+            if R::requests::<String>() {
+                request.provide_str_owned(self.to_string());
+            }
         }
 
         #[inline]
@@ -139,10 +145,14 @@ mod net {
         }
     }
 
-    impl Data for net::SocketAddrV6 {
+    impl<R: Req> Data<R> for net::SocketAddrV6 {
         #[inline]
-        fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-            value.str(self.to_string().into());
+        fn provide_value<'d>(&self, mut request: Request<'d, R>) {
+            request.provide_ref(self);
+
+            if R::requests::<String>() {
+                request.provide_str_owned(self.to_string());
+            }
         }
 
         #[inline]
@@ -154,27 +164,28 @@ mod net {
         }
     }
 
-    impl Data for net::SocketAddr {
+    impl<R: Req> Data<R> for net::SocketAddr {
         #[inline]
-        fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
+        fn provide_value<'d>(&self, request: Request<'d, R>) {
             match self {
-                net::SocketAddr::V4(addr) => addr.provide_value(value),
-                net::SocketAddr::V6(addr) => addr.provide_value(value),
+                net::SocketAddr::V4(addr) => addr.provide_value(request),
+                net::SocketAddr::V6(addr) => addr.provide_value(request),
             }
         }
 
         #[inline]
         fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
             match self {
-                net::SocketAddr::V4(addr) => addr.provide_links(links),
-                net::SocketAddr::V6(addr) => addr.provide_links(links),
+                net::SocketAddr::V4(addr) => Data::<R>::provide_links(addr, links),
+                net::SocketAddr::V6(addr) => Data::<R>::provide_links(addr, links),
             }
         }
     }
 }
 
-impl<K, V, S: ::std::hash::BuildHasher> Data for HashMap<K, V, S>
+impl<R, K, V, S: ::std::hash::BuildHasher> Data<R> for HashMap<K, V, S>
 where
+    R: Req,
     K: Data + ToOwned + 'static,
     K::Owned: Data,
     V: Data + ToOwned + 'static,
@@ -204,10 +215,10 @@ where
     }
 }
 
-impl<T> Data for Vec<T>
+impl<R: Req, T> Data<R> for Vec<T>
 where
-    T: Data + ToOwned + 'static,
-    T::Owned: Data,
+    T: Data<R> + Data + ToOwned + 'static,
+    T::Owned: Data<R> + Data,
 {
     #[inline]
     fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {

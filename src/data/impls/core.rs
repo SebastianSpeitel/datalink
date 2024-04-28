@@ -1,217 +1,120 @@
 use crate::data::Data;
 use crate::links::{LinkError, Links};
-use crate::value::ValueBuiler;
-use std::borrow::Cow;
+use crate::rr::{meta, Req, Request};
 
-impl Data for () {}
+impl<R: Req> Data<R> for () {}
 
-impl Data for bool {
+macro_rules! impl_copy_data {
+    ($ty:ty) => {
+        impl<R: Req> Data<R> for $ty {
+            #[inline]
+            fn provide_value<'d>(&self, mut request: Request<'d, R>) {
+                request.provide_owned(*self);
+            }
+        }
+    };
+}
+
+impl_copy_data!(bool);
+impl_copy_data!(u8);
+impl_copy_data!(i8);
+impl_copy_data!(u16);
+impl_copy_data!(i16);
+impl_copy_data!(u32);
+impl_copy_data!(i32);
+impl_copy_data!(u64);
+impl_copy_data!(i64);
+impl_copy_data!(u128);
+impl_copy_data!(i128);
+impl_copy_data!(f32);
+impl_copy_data!(f64);
+impl_copy_data!(char);
+
+impl<R: Req> Data<R> for str {
     #[inline]
-    fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-        value.bool(*self);
+    fn provide_value<'d>(&self, mut request: Request<'d, R>) {
+        request.provide_str(self);
+    }
+
+    #[inline]
+    fn with_req<R2: Req>(&self) -> Option<impl Data<R2>>
+    {
+        Some(self)
     }
 }
 
-impl Data for u8 {
+impl<R: Req> Data<R> for [u8] {
     #[inline]
-    fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-        value.u8(*self);
+    fn provide_value<'d>(&self, mut request: Request<'d, R>) {
+        request.provide_bytes(self);
     }
 }
 
-impl Data for i8 {
-    #[inline]
-    fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-        value.i8(*self);
-    }
-}
-
-impl Data for u16 {
-    #[inline]
-    fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-        value.u16(*self);
-    }
-}
-
-impl Data for i16 {
-    #[inline]
-    fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-        value.i16(*self);
-    }
-}
-
-impl Data for u32 {
-    #[inline]
-    fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-        value.u32(*self);
-    }
-}
-
-impl Data for i32 {
-    #[inline]
-    fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-        value.i32(*self);
-    }
-}
-
-impl Data for u64 {
-    #[inline]
-    fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-        value.u64(*self);
-    }
-}
-
-impl Data for i64 {
-    #[inline]
-    fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-        value.i64(*self);
-    }
-}
-
-impl Data for u128 {
-    #[inline]
-    fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-        value.u128(*self);
-    }
-}
-
-impl Data for i128 {
-    #[inline]
-    fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-        value.i128(*self);
-    }
-}
-
-impl Data for f32 {
-    #[inline]
-    fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-        value.f32(*self);
-    }
-}
-
-impl Data for usize {
+impl<R: Req> Data<R> for usize {
     #[allow(clippy::cast_possible_truncation)]
     #[inline]
-    fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-        match usize::BITS {
-            s if s == u8::BITS => value.u8(*self as u8),
-            s if s == u16::BITS => value.u16(*self as u16),
-            s if s == u32::BITS => value.u32(*self as u32),
-            s if s == u64::BITS => value.u64(*self as u64),
-            _ => {}
+    fn provide_value<'d>(&self, mut request: Request<'d, R>) {
+        if usize::BITS == u8::BITS {
+            request.provide_owned(*self as u8);
+        } else if usize::BITS == u16::BITS {
+            request.provide_owned(*self as u16);
+        } else if usize::BITS == u32::BITS {
+            request.provide_owned(*self as u32);
+        } else if usize::BITS == u64::BITS {
+            request.provide_owned(*self as u64);
         }
     }
 }
 
-impl Data for isize {
+impl<R: Req> Data<R> for isize {
     #[allow(clippy::cast_possible_truncation)]
     #[inline]
-    fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-        match isize::BITS {
-            s if s == i8::BITS => value.i8(*self as i8),
-            s if s == i16::BITS => value.i16(*self as i16),
-            s if s == i32::BITS => value.i32(*self as i32),
-            s if s == i64::BITS => value.i64(*self as i64),
-            _ => {}
+    fn provide_value<'d>(&self, mut request: Request<'d, R>) {
+        if isize::BITS == i8::BITS {
+            request.provide_owned(*self as i8);
+        } else if isize::BITS == i16::BITS {
+            request.provide_owned(*self as i16);
+        } else if isize::BITS == i32::BITS {
+            request.provide_owned(*self as i32);
+        } else if isize::BITS == i64::BITS {
+            request.provide_owned(*self as i64);
         }
     }
 }
 
-impl Data for f64 {
-    #[inline]
-    fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-        value.f64(*self);
-    }
+macro_rules! impl_nonzero_data {
+    ($ty:ty) => {
+        impl<R: Req> Data<R> for $ty {
+            #[inline]
+            fn provide_value<'d>(&self, mut request: Request<'d, R>) {
+                request.provide_owned(self.get());
+            }
+        }
+    };
 }
 
-impl Data for str {
-    #[inline]
-    fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-        value.str(Cow::Borrowed(self));
-    }
-}
-
-mod num {
-    use super::*;
-    use ::std::num;
-
-    impl Data for num::NonZeroU8 {
-        #[inline]
-        fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-            value.u8(self.get());
-        }
-    }
-
-    impl Data for num::NonZeroI8 {
-        #[inline]
-        fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-            value.i8(self.get());
-        }
-    }
-
-    impl Data for num::NonZeroU16 {
-        #[inline]
-        fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-            value.u16(self.get());
-        }
-    }
-
-    impl Data for num::NonZeroI16 {
-        #[inline]
-        fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-            value.i16(self.get());
-        }
-    }
-
-    impl Data for num::NonZeroU32 {
-        #[inline]
-        fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-            value.u32(self.get());
-        }
-    }
-
-    impl Data for num::NonZeroI32 {
-        #[inline]
-        fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-            value.i32(self.get());
-        }
-    }
-
-    impl Data for num::NonZeroU64 {
-        #[inline]
-        fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-            value.u64(self.get());
-        }
-    }
-
-    impl Data for num::NonZeroI64 {
-        #[inline]
-        fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-            value.i64(self.get());
-        }
-    }
-
-    impl Data for num::NonZeroU128 {
-        #[inline]
-        fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-            value.u128(self.get());
-        }
-    }
-
-    impl Data for num::NonZeroI128 {
-        #[inline]
-        fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
-            value.i128(self.get());
-        }
-    }
-}
+impl_nonzero_data!(core::num::NonZeroU8);
+impl_nonzero_data!(core::num::NonZeroI8);
+impl_nonzero_data!(core::num::NonZeroU16);
+impl_nonzero_data!(core::num::NonZeroI16);
+impl_nonzero_data!(core::num::NonZeroU32);
+impl_nonzero_data!(core::num::NonZeroI32);
+impl_nonzero_data!(core::num::NonZeroU64);
+impl_nonzero_data!(core::num::NonZeroI64);
+impl_nonzero_data!(core::num::NonZeroU128);
+impl_nonzero_data!(core::num::NonZeroI128);
+impl_nonzero_data!(core::num::NonZeroUsize);
+impl_nonzero_data!(core::num::NonZeroIsize);
 
 #[warn(clippy::missing_trait_methods)]
-impl<D: Data> Data for Option<D> {
+impl<R: Req, D: Data<R>> Data<R> for Option<D> {
     #[inline]
-    fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
+    fn provide_value<'d>(&self, mut request: Request<'d, R>) {
         if let Some(d) = self {
-            d.provide_value(value);
+            request.provide_owned(meta::IsSome);
+            d.provide_value(request);
+        } else {
+            request.provide_owned(meta::IsNone);
         }
     }
 
@@ -241,19 +144,30 @@ impl<D: Data> Data for Option<D> {
     fn get_id(&self) -> Option<crate::id::ID> {
         self.as_ref().and_then(Data::get_id)
     }
+
+    #[inline]
+    fn with_req<R2: Req>(&self) -> Option<impl Data<R2>> {
+        None::<()>
+    }
 }
 
 #[warn(clippy::missing_trait_methods)]
-impl<D: Data + ?Sized> Data for std::borrow::Cow<'_, D>
+impl<R: Req, D: Data<R> + ?Sized> Data<R> for std::borrow::Cow<'_, D>
 where
     D: ToOwned,
-    D::Owned: Data,
+    D::Owned: Data<R>,
 {
     #[inline]
-    fn provide_value<'d>(&'d self, builder: &mut dyn ValueBuiler<'d>) {
+    fn provide_value<'d>(&self, mut request: Request<'d, R>) {
         match self {
-            Self::Borrowed(data) => data.provide_value(builder),
-            Self::Owned(data) => data.provide_value(builder),
+            Self::Borrowed(data) => {
+                request.provide_owned(meta::IsBorrowed);
+                data.provide_value(request);
+            }
+            Self::Owned(data) => {
+                request.provide_owned(meta::IsOwned);
+                data.provide_value(request);
+            }
         }
     }
 
@@ -304,11 +218,14 @@ where
 }
 
 #[warn(clippy::missing_trait_methods)]
-impl<D: Data> Data for core::cell::OnceCell<D> {
+impl<R: Req, D: Data<R>> Data<R> for core::cell::OnceCell<D> {
     #[inline]
-    fn provide_value<'d>(&'d self, builder: &mut dyn ValueBuiler<'d>) {
+    fn provide_value<'d>(&self, mut request: Request<'d, R>) {
         if let Some(d) = self.get() {
-            d.provide_value(builder);
+            request.provide_owned(meta::IsSome);
+            d.provide_value(request);
+        } else {
+            request.provide_owned(meta::IsNone);
         }
     }
     #[inline]
@@ -316,6 +233,7 @@ impl<D: Data> Data for core::cell::OnceCell<D> {
         if let Some(d) = self.get() {
             d.provide_links(links)?;
         }
+
         Ok(())
     }
     #[inline]
@@ -327,24 +245,29 @@ impl<D: Data> Data for core::cell::OnceCell<D> {
         if let Some(d) = self.get() {
             d.query_links(links, query)?;
         }
+
         Ok(())
     }
 
     #[inline]
     fn get_id(&self) -> Option<crate::id::ID> {
-        if let Some(d) = self.get() {
-            d.get_id()
-        } else {
-            None
-        }
+        self.get().and_then(Data::get_id)
+    }
+
+    #[inline]
+    fn with_req<R2: Req>(&self) -> Option<impl Data<R2>> {
+        None::<()>
     }
 }
 
-impl<D: Data> Data for std::sync::OnceLock<D> {
+impl<R: Req, D: Data<R>> Data<R> for std::sync::OnceLock<D> {
     #[inline]
-    fn provide_value<'d>(&'d self, builder: &mut dyn ValueBuiler<'d>) {
+    fn provide_value<'d>(&self, mut request: Request<'d, R>) {
         if let Some(d) = self.get() {
-            d.provide_value(builder);
+            request.provide_owned(meta::IsSome);
+            d.provide_value(request);
+        } else {
+            request.provide_owned(meta::IsNone);
         }
     }
     #[inline]
@@ -352,6 +275,7 @@ impl<D: Data> Data for std::sync::OnceLock<D> {
         if let Some(d) = self.get() {
             d.provide_links(links)?;
         }
+
         Ok(())
     }
     #[inline]
@@ -363,33 +287,31 @@ impl<D: Data> Data for std::sync::OnceLock<D> {
         if let Some(d) = self.get() {
             d.query_links(links, query)?;
         }
+
         Ok(())
     }
 
     #[inline]
     fn get_id(&self) -> Option<crate::id::ID> {
-        if let Some(d) = self.get() {
-            d.get_id()
-        } else {
-            None
-        }
+        self.get().and_then(Data::get_id)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::value::Value;
+    use crate::data::DataExt;
 
     #[test]
     fn once_cell() {
         let cell = core::cell::OnceCell::new();
 
-        let val = Value::from_data(&cell);
-        assert!(val.as_enum().flatten().is_none());
+        let values = (&&&cell).all_values();
+        dbg!(&values);
+        assert!(values.single().is_none());
 
         cell.get_or_init(|| 100);
-        let val = Value::from_data(&cell);
+        let values = cell.all_values();
 
-        assert_eq!(val.as_i32().unwrap(), 100);
+        assert_eq!(values.as_i32().unwrap(), 100);
     }
 }

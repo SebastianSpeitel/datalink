@@ -1,5 +1,3 @@
-use crate::data::Data;
-
 mod core;
 #[cfg(feature = "json")]
 mod json;
@@ -11,10 +9,16 @@ mod toml;
 #[macro_export]
 macro_rules! impl_deref {
     ($ty:ty) => {
-        impl<D: Data + ?Sized> $crate::data::Data for $ty {
+        impl<R: $crate::rr::Req, D: $crate::data::Data + ?Sized> $crate::data::Data<R> for $ty {
             #[inline]
-            fn provide_value<'d>(&'d self, builder: &mut dyn $crate::value::ValueBuiler<'d>) {
-                (**self).provide_value(builder)
+            fn provide_value<'d>(&self, mut request: $crate::rr::Request<'d, R>) {
+                if let Some(opt) = $crate::data::Data::<$crate::rr::Unknown>::with_req::<R>(self) {
+                    opt.provide_value(request);
+                    return;
+                }
+                let request =
+                    $crate::rr::Request::new(&mut request.0 as &mut dyn $crate::rr::Receiver);
+                (**self).provide_value(request)
             }
             #[inline]
             fn provide_links(
@@ -40,7 +44,8 @@ macro_rules! impl_deref {
         impl<D: $crate::data::unique::Unique + ?Sized> $crate::data::unique::Unique for $ty {
             #[inline]
             fn id(&self) -> $crate::id::ID {
-                debug_assert!(self.get_id().is_some_and(|id| id == (*self).id()));
+                debug_assert!($crate::data::Data::<$crate::rr::Unknown>::get_id(self)
+                    .is_some_and(|id| id == (*self).id()));
                 (**self).id()
             }
         }
@@ -58,8 +63,7 @@ impl_deref!(::std::cell::RefMut<'_, D>);
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::data::DataExt;
+    use crate::data::{Data, DataExt};
 
     #[test]
     fn dyn_data() {

@@ -1,46 +1,33 @@
 use serde_json::{Map, Number, Value as Val};
 
 use crate::data::Data;
-use crate::id::ID;
 use crate::links::{LinkError, Links, LinksExt};
-use crate::value::ValueBuiler;
+use crate::rr::{meta, Req, Request};
 
-impl Data for Val {
+impl<R: Req> Data<R> for Val {
     #[inline]
-    fn provide_value<'d>(&'d self, builder: &mut dyn ValueBuiler<'d>) {
+    fn provide_value<'d>(&self, mut request: Request<'d, R>) {
         match self {
-            Val::Null => {}
-            Val::Bool(b) => {
-                builder.bool(*b);
-            }
-            Val::Number(n) => n.provide_value(builder),
-            Val::String(s) => {
-                builder.str(s.into());
-            }
-            Val::Array(_) => {}
-            Val::Object(_) => {}
+            Val::Null => request.provide_owned(meta::IsNull),
+            Val::Bool(b) => request.provide_ref(b),
+            Val::Number(n) => n.provide_value(request),
+            Val::String(s) => request.provide_ref(s),
+            Val::Array(v) => v.provide_value(request),
+            Val::Object(m) => m.provide_value(request),
         }
     }
 
     #[inline]
     fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
         match self {
-            Val::Array(v) => v.provide_links(links),
-            Val::Object(m) => m.provide_links(links),
+            Val::Array(v) => Data::<R>::provide_links(v, links),
+            Val::Object(m) => Data::<R>::provide_links(m, links),
             _ => Ok(()),
-        }
-    }
-
-    #[inline]
-    fn get_id(&self) -> Option<ID> {
-        match self {
-            Val::Null => crate::well_known::NONE.get_id(),
-            _ => None,
         }
     }
 }
 
-impl Data for Map<String, Val> {
+impl<R: Req> Data<R> for Map<String, Val> {
     #[inline]
     fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
         links.extend(self.iter().map(|(k, v)| (k.to_owned(), v.to_owned())))?;
@@ -65,17 +52,41 @@ impl Data for Map<String, Val> {
     }
 }
 
-impl Data for Number {
-    #[inline]
-    fn provide_value<'d>(&'d self, builder: &mut dyn ValueBuiler<'d>) {
-        if let Some(n) = self.as_u64() {
-            builder.u64(n);
+impl<R: Req> Data<R> for Number {
+    fn provide_value<'d>(&self, mut request: Request<'d, R>) {
+        if R::requests::<u64>() {
+            if let Some(n) = self.as_u64() {
+                request.provide_u64(n);
+            }
         }
-        if let Some(n) = self.as_i64() {
-            builder.i64(n);
+        if R::requests::<i64>() {
+            if let Some(n) = self.as_i64() {
+                request.provide_i64(n);
+            }
         }
-        if let Some(n) = self.as_f64() {
-            builder.f64(n);
+        if R::requests::<f64>() {
+            if let Some(n) = self.as_f64() {
+                request.provide_f64(n);
+            }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::rr::{Receiver, RefOption};
+
+    #[test]
+    fn number() {
+        let n = Number::from(42);
+        let mut r = None;
+        let req: Request = Request::new(&mut r as &mut dyn Receiver);
+        n.provide_value(req);
+        assert_eq!(r, Some(42u64));
+
+        let mut r = None;
+        n.provide_value(Request::<RefOption<u64>>::new(&mut r));
+        assert_eq!(r, Some(42));
     }
 }

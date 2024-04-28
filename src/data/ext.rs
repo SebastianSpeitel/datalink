@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::fmt::Debug;
 
 #[cfg(feature = "std")]
 use crate::data::BoxedData;
@@ -6,210 +6,240 @@ use crate::data::BoxedData;
 use crate::data::{format, Data};
 use crate::links::{LinkError, Links, Result};
 use crate::query::Query;
+use crate::rr::{Receiver, RefOption, Req, Request};
 
 pub trait DataExt: Data {
     #[inline]
     #[must_use]
-    fn as_bool(&self) -> Option<bool> {
+    fn as_<T>(&self) -> Option<T>
+    where
+        Self: Data<RefOption<T>>,
+        RefOption<T>: for<'d> Req<Receiver<'d> = &'d mut Option<T>>,
+        T: Debug, // remove this
+    {
         let mut value = None;
-        self.provide_value(&mut value);
+        let request: Request<'_, RefOption<T>> = Request::new(&mut value);
+        self.provide_value(request);
         value
     }
 
     #[inline]
     #[must_use]
-    fn as_u8(&self) -> Option<u8> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
+    fn as_bool(&self) -> Option<bool>
+    where
+        Self: Data<RefOption<bool>>,
+    {
+        self.as_()
     }
 
     #[inline]
     #[must_use]
-    fn as_i8(&self) -> Option<i8> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
+    fn as_u8(&self) -> Option<u8>
+    where
+        Self: Data<RefOption<u8>>,
+    {
+        self.as_()
     }
 
     #[inline]
     #[must_use]
-    fn as_u16(&self) -> Option<u16> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
+    fn as_i8(&self) -> Option<i8>
+    where
+        Self: Data<RefOption<i8>>,
+    {
+        self.as_()
     }
 
     #[inline]
     #[must_use]
-    fn as_i16(&self) -> Option<i16> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
+    fn as_u16(&self) -> Option<u16>
+    where
+        Self: Data<RefOption<u16>>,
+    {
+        self.as_()
     }
 
     #[inline]
     #[must_use]
-    fn as_u32(&self) -> Option<u32> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
+    fn as_i16(&self) -> Option<i16>
+    where
+        Self: Data<RefOption<i16>>,
+    {
+        self.as_()
     }
 
     #[inline]
     #[must_use]
-    fn as_i32(&self) -> Option<i32> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
+    fn as_u32(&self) -> Option<u32>
+    where
+        Self: Data<RefOption<u32>>,
+    {
+        self.as_()
     }
 
     #[inline]
     #[must_use]
-    fn as_u64(&self) -> Option<u64> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
+    fn as_i32(&self) -> Option<i32>
+    where
+        Self: Data<RefOption<i32>>,
+    {
+        self.as_()
     }
 
     #[inline]
     #[must_use]
-    fn as_i64(&self) -> Option<i64> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
+    fn as_u64(&self) -> Option<u64>
+    where
+        Self: Data<RefOption<u64>>,
+    {
+        self.as_()
     }
 
     #[inline]
     #[must_use]
-    fn as_u128(&self) -> Option<u128> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
+    fn as_i64(&self) -> Option<i64>
+    where
+        Self: Data<RefOption<i64>>,
+    {
+        self.as_()
     }
 
     #[inline]
     #[must_use]
-    fn as_i128(&self) -> Option<i128> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
+    fn as_u128(&self) -> Option<u128>
+    where
+        Self: Data<RefOption<u128>>,
+    {
+        self.as_()
     }
 
     #[inline]
     #[must_use]
-    fn as_f32(&self) -> Option<f32> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
+    fn as_i128(&self) -> Option<i128>
+    where
+        Self: Data<RefOption<i128>>,
+    {
+        self.as_()
     }
 
     #[inline]
     #[must_use]
-    fn as_f64(&self) -> Option<f64> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
+    fn as_f32(&self) -> Option<f32>
+    where
+        Self: Data<RefOption<f32>>,
+    {
+        self.as_()
     }
 
     #[inline]
     #[must_use]
-    fn as_str(&self) -> Option<Cow<str>> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
+    fn as_f64(&self) -> Option<f64>
+    where
+        Self: Data<RefOption<f64>>,
+    {
+        self.as_()
     }
 
     #[inline]
     #[must_use]
-    fn as_bytes(&self) -> Option<Cow<[u8]>> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
+    fn as_str(&self) -> Option<String>
+    where
+        Self: Data<RefOption<String>>,
+    {
+        self.as_()
     }
 
     #[inline]
     #[must_use]
-    fn as_number(&self) -> Option<isize> {
-        enum NumberBuilder {
-            NotFound,
-            Found(isize),
-            Invalid,
-        }
-
-        impl NumberBuilder {
-            #[inline]
-            fn try_set(&mut self, val: impl TryInto<isize>) {
-                match (&self, val.try_into()) {
-                    (Self::NotFound, Ok(v)) => *self = Self::Found(v),
-                    (Self::Found(before), Ok(v)) if *before == v => {}
-                    _ => *self = Self::Invalid,
-                }
-            }
-        }
-
-        impl crate::value::ValueBuiler<'_> for NumberBuilder {
-            fn bool(&mut self, value: bool) {
-                self.try_set(value);
-            }
-            fn bytes(&mut self, _value: Cow<'_, [u8]>) {
-                *self = Self::Invalid;
-            }
-            #[allow(clippy::cast_possible_truncation)]
-            fn f32(&mut self, value: f32) {
-                self.try_set(value as isize);
-            }
-            #[allow(clippy::cast_possible_truncation)]
-            fn f64(&mut self, value: f64) {
-                self.try_set(value as isize);
-            }
-            fn i128(&mut self, value: i128) {
-                self.try_set(value);
-            }
-            fn i16(&mut self, value: i16) {
-                self.try_set(value);
-            }
-            fn i32(&mut self, value: i32) {
-                self.try_set(value);
-            }
-            fn i64(&mut self, value: i64) {
-                self.try_set(value);
-            }
-            fn i8(&mut self, value: i8) {
-                self.try_set(value);
-            }
-            fn u16(&mut self, value: u16) {
-                self.try_set(value);
-            }
-            fn u32(&mut self, value: u32) {
-                self.try_set(value);
-            }
-            fn u64(&mut self, value: u64) {
-                self.try_set(value);
-            }
-            fn u8(&mut self, value: u8) {
-                self.try_set(value);
-            }
-            fn u128(&mut self, value: u128) {
-                self.try_set(value);
-            }
-            fn str(&mut self, value: Cow<'_, str>) {
-                if let Ok(val) = value.parse::<isize>() {
-                    self.try_set(val);
-                } else {
-                    *self = Self::Invalid;
-                }
-            }
-        }
-
-        let mut num = NumberBuilder::NotFound;
-        self.provide_value(&mut num);
-
-        match num {
-            NumberBuilder::Found(val) => Some(val),
-            _ => None,
-        }
+    fn as_bytes(&self) -> Option<Vec<u8>>
+    where
+        Self: Data<RefOption<Vec<u8>>>,
+    {
+        self.as_()
     }
+
+    // #[inline]
+    // #[must_use]
+    // fn as_number(&self) -> Option<isize> {
+    //     enum NumberBuilder {
+    //         NotFound,
+    //         Found(isize),
+    //         Invalid,
+    //     }
+
+    //     impl NumberBuilder {
+    //         #[inline]
+    //         fn try_set(&mut self, val: impl TryInto<isize>) {
+    //             match (&self, val.try_into()) {
+    //                 (Self::NotFound, Ok(v)) => *self = Self::Found(v),
+    //                 (Self::Found(before), Ok(v)) if *before == v => {}
+    //                 _ => *self = Self::Invalid,
+    //             }
+    //         }
+    //     }
+
+    //     impl crate::value::ValueBuiler<'_> for NumberBuilder {
+    //         fn bool(&mut self, value: bool) {
+    //             self.try_set(value);
+    //         }
+    //         fn bytes(&mut self, _value: Cow<'_, [u8]>) {
+    //             *self = Self::Invalid;
+    //         }
+    //         #[allow(clippy::cast_possible_truncation)]
+    //         fn f32(&mut self, value: f32) {
+    //             self.try_set(value as isize);
+    //         }
+    //         #[allow(clippy::cast_possible_truncation)]
+    //         fn f64(&mut self, value: f64) {
+    //             self.try_set(value as isize);
+    //         }
+    //         fn i128(&mut self, value: i128) {
+    //             self.try_set(value);
+    //         }
+    //         fn i16(&mut self, value: i16) {
+    //             self.try_set(value);
+    //         }
+    //         fn i32(&mut self, value: i32) {
+    //             self.try_set(value);
+    //         }
+    //         fn i64(&mut self, value: i64) {
+    //             self.try_set(value);
+    //         }
+    //         fn i8(&mut self, value: i8) {
+    //             self.try_set(value);
+    //         }
+    //         fn u16(&mut self, value: u16) {
+    //             self.try_set(value);
+    //         }
+    //         fn u32(&mut self, value: u32) {
+    //             self.try_set(value);
+    //         }
+    //         fn u64(&mut self, value: u64) {
+    //             self.try_set(value);
+    //         }
+    //         fn u8(&mut self, value: u8) {
+    //             self.try_set(value);
+    //         }
+    //         fn u128(&mut self, value: u128) {
+    //             self.try_set(value);
+    //         }
+    //         fn str(&mut self, value: Cow<'_, str>) {
+    //             if let Ok(val) = value.parse::<isize>() {
+    //                 self.try_set(val);
+    //             } else {
+    //                 *self = Self::Invalid;
+    //             }
+    //         }
+    //     }
+
+    //     let mut num = NumberBuilder::NotFound;
+    //     self.provide_value(&mut num);
+
+    //     match num {
+    //         NumberBuilder::Found(val) => Some(val),
+    //         _ => None,
+    //     }
+    // }
 
     #[inline]
     fn query<L: Links + Default>(&self, query: &Query) -> Result<L, LinkError> {
@@ -312,6 +342,7 @@ pub trait DataExt: Data {
     }
 
     #[cfg(all(feature = "well_known", feature = "unique"))]
+    #[inline]
     fn is_tagged_with(&self, tag: &impl crate::data::unique::Unique) -> Result<bool, LinkError> {
         let query = {
             use crate::query::prelude::*;
@@ -320,6 +351,14 @@ pub trait DataExt: Data {
         };
 
         Ok(self.query::<Option<BoxedData>>(&query)?.is_some())
+    }
+
+    #[inline]
+    #[must_use]
+    fn all_values(&self) -> crate::value::AllValues {
+        let mut values = crate::value::AllValues::default();
+        self.provide_value(Request::new(&mut values as &mut dyn Receiver));
+        values
     }
 
     #[allow(unused_variables)]

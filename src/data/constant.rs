@@ -2,7 +2,8 @@ use crate::data::unique::Unique;
 use crate::data::{format, Data, DataExt};
 use crate::id::ID;
 use crate::links::{LinkError, Links};
-use crate::value::ValueBuiler;
+use crate::rr::Req;
+use crate::value::ValueRequest;
 
 /// Wrapper for data with compile-time constant ID
 ///
@@ -14,7 +15,7 @@ use crate::value::ValueBuiler;
 ///
 /// pub const ROOT: Const<1234> = Const::empty();
 ///
-/// assert!(ROOT.get_id().is_some());
+/// assert!(datalink::Data::<datalink::value::Unknown>::get_id(&ROOT).is_some());
 /// assert_eq!(size_of_val(&ROOT), 0);
 /// ```
 ///
@@ -67,10 +68,11 @@ impl<const I: u128, S: Data + ?Sized, O: Data + ?Sized> PartialEq<O> for Const<I
 impl<const I: u128, D: Data + ?Sized> Eq for Const<I, D> {}
 
 #[warn(clippy::missing_trait_methods)]
-impl<const I: u128, D: Data + ?Sized> Data for Const<I, D> {
+impl<const I: u128, R: Req, D: Data + ?Sized> Data<R> for Const<I, D> {
     #[inline]
-    fn provide_value<'d>(&'d self, builder: &mut dyn ValueBuiler<'d>) {
-        self.0.provide_value(builder)
+    fn provide_value<'d>(&self, mut request: ValueRequest<'d, R>) {
+        let request = ValueRequest::new(&mut request.0 as &mut dyn crate::rr::Receiver);
+        self.0.provide_value(request)
     }
 
     #[inline]
@@ -116,7 +118,7 @@ mod tests {
     fn has_id() {
         let empty = Const::<123>::empty();
 
-        assert!(empty.get_id().is_some());
+        assert!(Data::<crate::rr::Unknown>::get_id(&empty).is_some());
     }
 
     #[test]
