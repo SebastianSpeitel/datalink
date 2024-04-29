@@ -55,6 +55,7 @@ macro_rules! impl_deref {
     };
 }
 
+impl_deref!(&D);
 impl_deref!(Box<D>);
 impl_deref!(::std::sync::Arc<D>);
 impl_deref!(::std::rc::Rc<D>);
@@ -110,39 +111,6 @@ impl Data for &dyn Data {
         _request: &mut crate::rr::Request<'d, R>,
     ) -> impl Provided {
         super::internal::DefaultImpl
-    }
-    #[inline]
-    fn provide_links(
-        &self,
-        links: &mut dyn crate::links::Links,
-    ) -> Result<(), crate::links::LinkError> {
-        (**self).provide_links(links)
-    }
-    #[inline]
-    fn query_links(
-        &self,
-        links: &mut dyn crate::links::Links,
-        query: &crate::query::Query,
-    ) -> Result<(), crate::links::LinkError> {
-        (**self).query_links(links, query)
-    }
-    #[inline]
-    fn get_id(&self) -> Option<crate::id::ID> {
-        (**self).get_id()
-    }
-}
-
-impl<D: Data> Data for &D {
-    #[inline]
-    fn provide_value(&self, request: crate::rr::Request) {
-        (**self).provide_value(request);
-    }
-    #[inline]
-    fn provide_requested<'d, R: crate::rr::Req>(
-        &self,
-        request: &mut crate::rr::Request<'d, R>,
-    ) -> impl Provided {
-        (**self).provide_requested(request)
     }
     #[inline]
     fn provide_links(
