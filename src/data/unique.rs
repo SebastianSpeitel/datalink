@@ -132,10 +132,10 @@ impl<D: Data + ?Sized, T: Borrow<D>> Unique for Fixed<D, T> {
     }
 }
 
-impl<D: Data + ?Sized, T: Borrow<D>> PartialEq for Fixed<D, T> {
+impl<D: Data + ?Sized, T: Borrow<D>, O: Data + ?Sized> PartialEq<O> for Fixed<D, T> {
     #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
+    fn eq(&self, other: &O) -> bool {
+        other.get_id().is_some_and(|id| id == self.id)
     }
 }
 
