@@ -6,15 +6,12 @@ use crate::rr::{meta, Req, Request};
 
 impl Data for Val {
     #[inline]
-    fn provide_value<'d>(&self, mut request: Request<'d>) {
+    fn provide_value(&self, mut request: Request) {
         self.provide_requested(&mut request).debug_assert_provided();
     }
 
     #[inline]
-    fn provide_requested<'d, R: Req>(
-        &self,
-        request: &mut Request<'d, R>,
-    ) -> impl Provided {
+    fn provide_requested<'d, R: Req>(&self, request: &mut Request<'d, R>) -> impl Provided {
         match self {
             Val::Null => request.provide_owned(meta::IsNull),
             Val::Bool(b) => request.provide_ref(b),
@@ -72,14 +69,11 @@ impl Data for Map<String, Val> {
 
 impl Data for Number {
     #[inline]
-    fn provide_value<'d>(&self, mut request: Request<'d>) {
+    fn provide_value(&self, mut request: Request) {
         self.provide_requested(&mut request).debug_assert_provided();
     }
     #[inline]
-    fn provide_requested<'d, R: Req>(
-        &self,
-        request: &mut Request<'d, R>,
-    ) -> impl Provided {
+    fn provide_requested<'d, R: Req>(&self, request: &mut Request<'d, R>) -> impl Provided {
         if R::requests::<u64>() {
             if let Some(n) = self.as_u64() {
                 request.provide_u64(n);

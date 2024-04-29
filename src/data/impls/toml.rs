@@ -6,14 +6,11 @@ use crate::rr::{Req, Request};
 
 impl Data for Val {
     #[inline]
-    fn provide_value<'d>(&self, mut request: Request<'d>) {
+    fn provide_value(&self, mut request: Request) {
         self.provide_requested(&mut request).debug_assert_provided();
     }
     #[inline]
-    fn provide_requested<'d, R: Req>(
-        &self,
-        request: &mut Request<'d, R>,
-    ) -> impl Provided {
+    fn provide_requested<'d, R: Req>(&self, request: &mut Request<'d, R>) -> impl Provided {
         match self {
             Val::String(s) => request.provide_str(s),
             Val::Integer(i) => request.provide_ref(i),
