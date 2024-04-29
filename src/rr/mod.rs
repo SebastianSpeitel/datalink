@@ -10,7 +10,7 @@ pub trait Req: 'static {
 
     #[inline]
     #[must_use]
-    fn requests<T: core::any::Any + ?Sized>() -> bool {
+    fn requests<T: 'static + ?Sized>() -> bool {
         Self::Receiver::accepts::<T>()
     }
 }
@@ -29,4 +29,25 @@ where
     for<'a> &'a mut Option<T>: Receiver,
 {
     type Receiver<'d> = &'d mut Option<T>;
+}
+
+#[derive(Debug)]
+pub struct IgnoreMeta<R: Req>(core::marker::PhantomData<R>);
+impl<R: Req> Req for IgnoreMeta<R> {
+    type Receiver<'d> = R::Receiver<'d>;
+
+    #[inline]
+    fn requests<T: 'static + ?Sized>() -> bool {
+        if meta::is_meta::<T>() {
+            return false;
+        }
+        R::requests::<T>()
+    }
+}
+
+#[macro_export]
+macro_rules! type_eq {
+    ($ty1:ty, $ty2:ty) => {
+        core::any::TypeId::of::<$ty1>() == core::any::TypeId::of::<$ty2>()
+    };
 }

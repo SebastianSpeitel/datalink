@@ -1,33 +1,42 @@
 use serde_json::{Map, Number, Value as Val};
 
-use crate::data::Data;
+use crate::data::{Data, Provided};
 use crate::links::{LinkError, Links, LinksExt};
 use crate::rr::{meta, Req, Request};
 
-impl<R: Req> Data<R> for Val {
+impl Data for Val {
     #[inline]
-    fn provide_value<'d>(&self, mut request: Request<'d, R>) {
+    fn provide_value<'d>(&self, mut request: Request<'d>) {
+        self.provide_requested(&mut request).debug_assert_provided();
+    }
+
+    #[inline]
+    fn provide_requested<'d, R: Req>(
+        &self,
+        request: &mut Request<'d, R>,
+    ) -> impl Provided {
         match self {
             Val::Null => request.provide_owned(meta::IsNull),
             Val::Bool(b) => request.provide_ref(b),
-            Val::Number(n) => n.provide_value(request),
-            Val::String(s) => request.provide_ref(s),
-            Val::Array(v) => v.provide_value(request),
-            Val::Object(m) => m.provide_value(request),
+            Val::Number(n) => n.provide_requested(request).debug_assert_provided(),
+            Val::String(s) => request.provide_str(s),
+            Val::Array(..) | Val::Object(..) => {
+                // Array and object have no value
+            }
         }
     }
 
     #[inline]
     fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
         match self {
-            Val::Array(v) => Data::<R>::provide_links(v, links),
-            Val::Object(m) => Data::<R>::provide_links(m, links),
+            Val::Array(v) => v.provide_links(links),
+            Val::Object(m) => m.provide_links(links),
             _ => Ok(()),
         }
     }
 }
 
-impl<R: Req> Data<R> for Map<String, Val> {
+impl Data for Map<String, Val> {
     #[inline]
     fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
         links.extend(self.iter().map(|(k, v)| (k.to_owned(), v.to_owned())))?;
@@ -52,8 +61,16 @@ impl<R: Req> Data<R> for Map<String, Val> {
     }
 }
 
-impl<R: Req> Data<R> for Number {
-    fn provide_value<'d>(&self, mut request: Request<'d, R>) {
+impl Data for Number {
+    #[inline]
+    fn provide_value<'d>(&self, mut request: Request<'d>) {
+        self.provide_requested(&mut request).debug_assert_provided();
+    }
+    #[inline]
+    fn provide_requested<'d, R: Req>(
+        &self,
+        request: &mut Request<'d, R>,
+    ) -> impl Provided {
         if R::requests::<u64>() {
             if let Some(n) = self.as_u64() {
                 request.provide_u64(n);
@@ -86,7 +103,8 @@ mod tests {
         assert_eq!(r, Some(42u64));
 
         let mut r = None;
-        n.provide_value(Request::<RefOption<u64>>::new(&mut r));
+        n.provide_requested(&mut Request::<RefOption<u64>>::new(&mut r))
+            .assert_provided();
         assert_eq!(r, Some(42));
     }
 }

@@ -46,11 +46,11 @@ use std::any::Any;
 //     }
 // }
 
-macro_rules! type_eq {
-    ($ty1:ty, $ty2:ty) => {
-        core::any::TypeId::of::<$ty1>() == core::any::TypeId::of::<$ty2>()
-    };
-}
+// macro_rules! type_eq {
+//     ($ty1:ty, $ty2:ty) => {
+//         core::any::TypeId::of::<$ty1>() == core::any::TypeId::of::<$ty2>()
+//     };
+// }
 
 /// # Safety
 ///
@@ -60,7 +60,7 @@ macro_rules! type_eq {
 //     debug_assert_eq!(any.type_id(), core::any::TypeId::of::<T>());
 //     any.downcast_ref::<T>().unwrap_unchecked()
 // }
-
+use crate::data::Provided;
 /// # Safety
 ///
 /// The caller must ensure that the type of `value` is `T`.
@@ -902,6 +902,12 @@ impl ValueReceiver for Value {
     fn bytes_owned(&mut self, value: Vec<u8>) {
         *self = Self::Bytes(value);
     }
+
+    #[inline]
+    fn accepts<T: 'static + ?Sized>() -> bool {
+        // Todo: check if the type is accepted
+        true
+    }
 }
 
 #[inline]
@@ -921,18 +927,22 @@ fn provide_value<R: Req>(value: &Value, request: &mut ValueRequest<R>) {
         Value::F32(v) => request.provide_ref(v),
         Value::F64(v) => request.provide_ref(v),
         Value::Char(v) => request.provide_ref(v),
-        Value::String(v) => request.provide_ref(v),
-        Value::Bytes(v) => request.provide_ref(v),
+        Value::String(v) => request.provide_str(v),
+        Value::Bytes(v) => request.provide_bytes(v),
         Value::Other(v) => request.provide_ref(v),
         Value::True => request.provide_bool(true),
         Value::False => request.provide_bool(false),
     }
 }
 
-impl<R: Req> crate::Data<R> for Value {
+impl crate::Data for Value {
     #[inline]
-    fn provide_value<'d>(&self, mut request: ValueRequest<'d, R>) {
+    fn provide_value(&self, mut request: ValueRequest<'_>) {
         provide_value(self, &mut request);
+    }
+    #[inline]
+    fn provide_requested<'d, R: Req>(&self, request: &mut ValueRequest<'d, R>) -> impl Provided {
+        provide_value(self, request);
     }
 }
 
@@ -1056,16 +1066,26 @@ impl ValueReceiver for AllValues {
         self.0.push(Value::Other(value));
     }
     #[inline]
+    fn other_ref(&mut self, value: &dyn Any) {
+        // Can't be stored as Value
+    }
+    #[inline]
     fn accepts<T: 'static + ?Sized>() -> bool {
-        true
+        Value::accepts::<T>()
     }
 }
 
-impl<R: Req> crate::Data<R> for AllValues {
+impl crate::Data for AllValues {
     #[inline]
-    fn provide_value<'d>(&self, mut request: ValueRequest<'d, R>) {
+    fn provide_value(&self, mut request: ValueRequest<'_>) {
         for value in &self.0 {
             provide_value(value, &mut request);
+        }
+    }
+    #[inline]
+    fn provide_requested<'d, R: Req>(&self, request: &mut ValueRequest<'d, R>) -> impl Provided {
+        for value in &self.0 {
+            provide_value(value, request);
         }
     }
 }
@@ -1084,10 +1104,14 @@ impl AllValues {
 
 impl Req for AllValues {
     type Receiver<'d> = &'d mut AllValues;
+}
+
+impl core::ops::Deref for AllValues {
+    type Target = Vec<Value>;
 
     #[inline]
-    fn requests<T: core::any::Any + ?Sized>() -> bool {
-        true
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 

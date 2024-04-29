@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use crate::{
     links::{LinkError, Links, LinksExt},
-    value::{Req, Unknown, ValueRequest},
+    value::{Req, ValueRequest},
 };
 
 #[cfg(feature = "unique")]
@@ -31,9 +31,7 @@ pub type BoxedData = Box<dyn Data>;
 pub trait Data {
     #[allow(unused_variables)]
     #[inline]
-    fn provide_value<'d>(&self, request: ValueRequest<'d>) {
-        self.try_provide_requested(request);
-    }
+    fn provide_value(&self, request: ValueRequest<'_>) {}
 
     #[allow(unused_variables)]
     #[inline]
@@ -63,42 +61,13 @@ pub trait Data {
     }
 
     #[inline]
+    #[must_use]
     #[allow(unused_variables)]
-    fn try_provide_requested<'d, R: Req>(
-        &self,
-        request: impl AsMut<ValueRequest<'d, R>>,
-    ) -> Result<(), ()>
+    fn provide_requested<'d, R: Req>(&self, request: &mut ValueRequest<'d, R>) -> impl Provided
     where
         Self: Sized,
     {
-        Err(())
-    }
-}
-
-#[warn(clippy::missing_trait_methods)]
-impl<D: Data + ?Sized> Data for &D {
-    #[inline]
-    fn provide_value<'d>(&self, mut request: ValueRequest<'d>) {
-        if (*self).try_provide_requested(&mut request).is_ok() {
-            return;
-        }
-        (**self).provide_value(request);
-    }
-    #[inline]
-    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-        (*self).provide_links(links)
-    }
-    #[inline]
-    fn query_links(
-        &self,
-        links: &mut dyn Links,
-        query: &crate::query::Query,
-    ) -> Result<(), LinkError> {
-        (*self).query_links(links, query)
-    }
-    #[inline]
-    fn get_id(&self) -> Option<crate::id::ID> {
-        (*self).get_id()
+        internal::DefaultImpl
     }
 }
 
@@ -135,6 +104,44 @@ impl Debug for dyn Data + Sync + Send {
     #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.format::<format::DEBUG>().fmt(f)
+    }
+}
+
+mod internal {
+    pub(super) struct DefaultImpl;
+    impl super::Provided for DefaultImpl {
+        #[inline]
+        fn was_provided(&self) -> bool {
+            false
+        }
+    }
+}
+
+pub trait Provided {
+    #[inline]
+    fn was_provided(&self) -> bool {
+        true
+    }
+
+    #[inline]
+    #[track_caller]
+    fn assert_provided(&self) {
+        assert!(self.was_provided());
+    }
+
+    #[inline]
+    #[track_caller]
+    fn debug_assert_provided(&self) {
+        debug_assert!(self.was_provided());
+    }
+}
+
+impl Provided for () {}
+
+impl Provided for bool {
+    #[inline]
+    fn was_provided(&self) -> bool {
+        *self
     }
 }
 

@@ -1,24 +1,26 @@
-use std::fmt::Debug;
-
 #[cfg(feature = "std")]
 use crate::data::BoxedData;
 
-use crate::data::{format, Data};
+use crate::data::{format, Data, Provided};
 use crate::links::{LinkError, Links, Result};
 use crate::query::Query;
-use crate::rr::{Receiver, RefOption, Req, Request};
+use crate::rr::{IgnoreMeta, Receiver, RefOption, Req, Request};
 
 pub trait DataExt: Data {
     #[inline]
     #[must_use]
     fn as_<T>(&self) -> Option<T>
     where
-        Self: Data<RefOption<T>>,
+        Self: Sized,
         RefOption<T>: for<'d> Req<Receiver<'d> = &'d mut Option<T>>,
-        T: Debug, // remove this
+        Option<T>: Receiver,
     {
         let mut value = None;
-        let request: Request<'_, RefOption<T>> = Request::new(&mut value);
+        let mut request: Request<'_, IgnoreMeta<RefOption<T>>> = Request::new(&mut value);
+        if self.provide_requested(&mut request).was_provided() {
+            return value;
+        }
+        let request = Request::new(&mut value as &mut dyn Receiver);
         self.provide_value(request);
         value
     }
@@ -27,7 +29,7 @@ pub trait DataExt: Data {
     #[must_use]
     fn as_bool(&self) -> Option<bool>
     where
-        Self: Data<RefOption<bool>>,
+        Self: Sized,
     {
         self.as_()
     }
@@ -36,7 +38,7 @@ pub trait DataExt: Data {
     #[must_use]
     fn as_u8(&self) -> Option<u8>
     where
-        Self: Data<RefOption<u8>>,
+        Self: Sized,
     {
         self.as_()
     }
@@ -45,7 +47,7 @@ pub trait DataExt: Data {
     #[must_use]
     fn as_i8(&self) -> Option<i8>
     where
-        Self: Data<RefOption<i8>>,
+        Self: Sized,
     {
         self.as_()
     }
@@ -54,7 +56,7 @@ pub trait DataExt: Data {
     #[must_use]
     fn as_u16(&self) -> Option<u16>
     where
-        Self: Data<RefOption<u16>>,
+        Self: Sized,
     {
         self.as_()
     }
@@ -63,7 +65,7 @@ pub trait DataExt: Data {
     #[must_use]
     fn as_i16(&self) -> Option<i16>
     where
-        Self: Data<RefOption<i16>>,
+        Self: Sized,
     {
         self.as_()
     }
@@ -72,7 +74,7 @@ pub trait DataExt: Data {
     #[must_use]
     fn as_u32(&self) -> Option<u32>
     where
-        Self: Data<RefOption<u32>>,
+        Self: Sized,
     {
         self.as_()
     }
@@ -81,7 +83,7 @@ pub trait DataExt: Data {
     #[must_use]
     fn as_i32(&self) -> Option<i32>
     where
-        Self: Data<RefOption<i32>>,
+        Self: Sized,
     {
         self.as_()
     }
@@ -90,7 +92,7 @@ pub trait DataExt: Data {
     #[must_use]
     fn as_u64(&self) -> Option<u64>
     where
-        Self: Data<RefOption<u64>>,
+        Self: Sized,
     {
         self.as_()
     }
@@ -99,7 +101,7 @@ pub trait DataExt: Data {
     #[must_use]
     fn as_i64(&self) -> Option<i64>
     where
-        Self: Data<RefOption<i64>>,
+        Self: Sized,
     {
         self.as_()
     }
@@ -108,7 +110,7 @@ pub trait DataExt: Data {
     #[must_use]
     fn as_u128(&self) -> Option<u128>
     where
-        Self: Data<RefOption<u128>>,
+        Self: Sized,
     {
         self.as_()
     }
@@ -117,7 +119,7 @@ pub trait DataExt: Data {
     #[must_use]
     fn as_i128(&self) -> Option<i128>
     where
-        Self: Data<RefOption<i128>>,
+        Self: Sized,
     {
         self.as_()
     }
@@ -126,7 +128,7 @@ pub trait DataExt: Data {
     #[must_use]
     fn as_f32(&self) -> Option<f32>
     where
-        Self: Data<RefOption<f32>>,
+        Self: Sized,
     {
         self.as_()
     }
@@ -135,7 +137,7 @@ pub trait DataExt: Data {
     #[must_use]
     fn as_f64(&self) -> Option<f64>
     where
-        Self: Data<RefOption<f64>>,
+        Self: Sized,
     {
         self.as_()
     }
@@ -144,7 +146,7 @@ pub trait DataExt: Data {
     #[must_use]
     fn as_str(&self) -> Option<String>
     where
-        Self: Data<RefOption<String>>,
+        Self: Sized,
     {
         self.as_()
     }
@@ -153,7 +155,7 @@ pub trait DataExt: Data {
     #[must_use]
     fn as_bytes(&self) -> Option<Vec<u8>>
     where
-        Self: Data<RefOption<Vec<u8>>>,
+        Self: Sized,
     {
         self.as_()
     }
@@ -355,7 +357,17 @@ pub trait DataExt: Data {
 
     #[inline]
     #[must_use]
-    fn all_values(&self) -> crate::value::AllValues {
+    fn all_values(&self) -> crate::value::AllValues
+    where
+        Self: Sized,
+    {
+        let mut values = crate::value::AllValues::default();
+        if self
+            .provide_requested::<crate::value::AllValues>(&mut Request::new(&mut values))
+            .was_provided()
+        {
+            return values;
+        }
         let mut values = crate::value::AllValues::default();
         self.provide_value(Request::new(&mut values as &mut dyn Receiver));
         values

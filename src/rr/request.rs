@@ -1,12 +1,7 @@
 use super::Receiver;
 use super::Req;
+use crate::type_eq;
 use core::any::Any;
-
-macro_rules! type_eq {
-    ($ty1:ty, $ty2:ty) => {
-        core::any::TypeId::of::<$ty1>() == core::any::TypeId::of::<$ty2>()
-    };
-}
 
 /// # Safety
 ///
@@ -37,13 +32,10 @@ macro_rules! provide_typed {
     };
 }
 
-macro_rules! provision_fn {
+macro_rules! provide_fn {
     ($m:ident, $ty:ty, $m_r:ident) => {
         #[inline]
         pub fn $m(&mut self, value: $ty) {
-            dbg!(&value);
-            dbg!(std::any::type_name::<R>());
-            dbg!(R::requests::<$ty>());
             if !R::requests::<$ty>() {
                 return;
             }
@@ -165,22 +157,22 @@ impl<'d, R: Req> Request<'d, R> {
         self.0.other_boxed(Box::new(value));
     }
 
-    provision_fn!(provide_bool, bool, bool);
-    provision_fn!(provide_i8, i8, i8);
-    provision_fn!(provide_u8, u8, u8);
-    provision_fn!(provide_i16, i16, i16);
-    provision_fn!(provide_u16, u16, u16);
-    provision_fn!(provide_i32, i32, i32);
-    provision_fn!(provide_u32, u32, u32);
-    provision_fn!(provide_i64, i64, i64);
-    provision_fn!(provide_u64, u64, u64);
-    provision_fn!(provide_i128, i128, i128);
-    provision_fn!(provide_u128, u128, u128);
-    provision_fn!(provide_f32, f32, f32);
-    provision_fn!(provide_f64, f64, f64);
-    provision_fn!(provide_char, char, char);
-    provision_fn!(provide_str, &str, str);
-    provision_fn!(provide_bytes, &[u8], bytes);
+    provide_fn!(provide_bool, bool, bool);
+    provide_fn!(provide_i8, i8, i8);
+    provide_fn!(provide_u8, u8, u8);
+    provide_fn!(provide_i16, i16, i16);
+    provide_fn!(provide_u16, u16, u16);
+    provide_fn!(provide_i32, i32, i32);
+    provide_fn!(provide_u32, u32, u32);
+    provide_fn!(provide_i64, i64, i64);
+    provide_fn!(provide_u64, u64, u64);
+    provide_fn!(provide_i128, i128, i128);
+    provide_fn!(provide_u128, u128, u128);
+    provide_fn!(provide_f32, f32, f32);
+    provide_fn!(provide_f64, f64, f64);
+    provide_fn!(provide_char, char, char);
+    provide_fn!(provide_str, &str, str);
+    provide_fn!(provide_bytes, &[u8], bytes);
 
     #[inline]
     pub fn provide_str_owned(&mut self, value: String) {
@@ -210,25 +202,3 @@ where
         Self(Default::default())
     }
 }
-
-impl<'d, T: Req + ?Sized> core::convert::AsMut<Self> for Request<'d, T> {
-    #[inline]
-    fn as_mut(&mut self) -> &mut Self {
-        self
-    }
-}
-// impl<'d, T: Req> core::ops::Deref for Request<'d, T> {
-//     type Target = T::Receiver<'d>;
-
-//     #[inline]
-//     fn deref(&self) -> &Self::Target {
-//         &self.0
-//     }
-// }
-
-// impl<'d, T: Req> core::ops::DerefMut for Request<'d, T> {
-//     #[inline]
-//     fn deref_mut(&mut self) -> &mut Self::Target {
-//         &mut self.0
-//     }
-// }

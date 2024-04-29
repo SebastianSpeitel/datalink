@@ -49,10 +49,20 @@ macro_rules! impl_unique {
 #[macro_export]
 macro_rules! impl_data {
     ($name:ident $(,id=$id:expr)? $(,values=[$($val:expr),+])? $(,links=[$($link:expr),+])?) => {
-        impl<V:$crate::value::Req> $crate::data::Data<V> for $name {
+        impl $crate::data::Data for $name {
             $(
                 #[inline]
-                fn provide_value<'d>(&self, mut request: $crate::value::ValueRequest<'d, V>) {
+                fn provide_value(&self, mut request: $crate::value::ValueRequest<'_>) {
+                    $(
+                        request.provide_owned($val);
+                    )+
+                }
+
+                #[inline]
+                fn provide_requested<'d, R: $crate::value::Req>(
+                    &self,
+                    request: &mut $crate::value::ValueRequest<'d, R>,
+                ) -> impl $crate::data::Provided {
                     $(
                         request.provide_owned($val);
                     )+
@@ -96,7 +106,7 @@ mod tests {
         struct Foo;
         impl_data!(Foo, id = 0x734BFA09_662B_477C_8B61_7E85B6C47645);
 
-        assert!(Data::<crate::rr::Unknown>::get_id(&Foo).is_some());
+        assert!(Foo.get_id().is_some());
     }
 
     #[test]
@@ -153,7 +163,7 @@ mod tests {
             links = [(42u32, "foo")]
         );
 
-        assert!(Data::<crate::rr::Unknown>::get_id(&Foo).is_some());
+        assert!(Foo.get_id().is_some());
         assert_eq!(Foo.as_u32(), Some(42u32));
         assert_eq!(Foo.as_str(), Some("foo".into()));
 

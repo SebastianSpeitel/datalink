@@ -1,3 +1,7 @@
+use crate::Data;
+
+use super::Provided;
+
 mod core;
 #[cfg(feature = "json")]
 mod json;
@@ -9,16 +13,17 @@ mod toml;
 #[macro_export]
 macro_rules! impl_deref {
     ($ty:ty) => {
-        impl<R: $crate::rr::Req, D: $crate::data::Data + ?Sized> $crate::data::Data<R> for $ty {
+        impl<D: $crate::data::Data> $crate::data::Data for $ty {
             #[inline]
-            fn provide_value<'d>(&self, mut request: $crate::rr::Request<'d, R>) {
-                if let Some(opt) = $crate::data::Data::<$crate::rr::Unknown>::with_req::<R>(self) {
-                    opt.provide_value(request);
-                    return;
-                }
-                let request =
-                    $crate::rr::Request::new(&mut request.0 as &mut dyn $crate::rr::Receiver);
+            fn provide_value(&self, request: $crate::rr::Request) {
                 (**self).provide_value(request)
+            }
+            #[inline]
+            fn provide_requested<'d, R: $crate::rr::Req>(
+                &self,
+                request: &mut $crate::rr::Request<'d, R>,
+            ) -> impl $crate::data::Provided {
+                (**self).provide_requested(request)
             }
             #[inline]
             fn provide_links(
@@ -44,8 +49,6 @@ macro_rules! impl_deref {
         impl<D: $crate::data::unique::Unique + ?Sized> $crate::data::unique::Unique for $ty {
             #[inline]
             fn id(&self) -> $crate::id::ID {
-                debug_assert!($crate::data::Data::<$crate::rr::Unknown>::get_id(self)
-                    .is_some_and(|id| id == (*self).id()));
                 (**self).id()
             }
         }
@@ -60,6 +63,107 @@ impl_deref!(::std::sync::RwLockReadGuard<'_, D>);
 impl_deref!(::std::sync::RwLockWriteGuard<'_, D>);
 impl_deref!(::std::cell::Ref<'_, D>);
 impl_deref!(::std::cell::RefMut<'_, D>);
+
+#[warn(clippy::missing_trait_methods)]
+impl Data for Box<dyn Data> {
+    #[inline]
+    fn provide_value(&self, request: crate::rr::Request) {
+        (**self).provide_value(request);
+    }
+    #[inline]
+    fn provide_requested<'d, R: crate::rr::Req>(
+        &self,
+        _request: &mut crate::rr::Request<'d, R>,
+    ) -> impl Provided {
+        super::internal::DefaultImpl
+    }
+    #[inline]
+    fn provide_links(
+        &self,
+        links: &mut dyn crate::links::Links,
+    ) -> Result<(), crate::links::LinkError> {
+        (**self).provide_links(links)
+    }
+    #[inline]
+    fn query_links(
+        &self,
+        links: &mut dyn crate::links::Links,
+        query: &crate::query::Query,
+    ) -> Result<(), crate::links::LinkError> {
+        (**self).query_links(links, query)
+    }
+    #[inline]
+    fn get_id(&self) -> Option<crate::id::ID> {
+        (**self).get_id()
+    }
+}
+
+#[warn(clippy::missing_trait_methods)]
+impl Data for &dyn Data {
+    #[inline]
+    fn provide_value(&self, request: crate::rr::Request) {
+        (**self).provide_value(request);
+    }
+    #[inline]
+    fn provide_requested<'d, R: crate::rr::Req>(
+        &self,
+        _request: &mut crate::rr::Request<'d, R>,
+    ) -> impl Provided {
+        super::internal::DefaultImpl
+    }
+    #[inline]
+    fn provide_links(
+        &self,
+        links: &mut dyn crate::links::Links,
+    ) -> Result<(), crate::links::LinkError> {
+        (**self).provide_links(links)
+    }
+    #[inline]
+    fn query_links(
+        &self,
+        links: &mut dyn crate::links::Links,
+        query: &crate::query::Query,
+    ) -> Result<(), crate::links::LinkError> {
+        (**self).query_links(links, query)
+    }
+    #[inline]
+    fn get_id(&self) -> Option<crate::id::ID> {
+        (**self).get_id()
+    }
+}
+
+impl<D: Data> Data for &D {
+    #[inline]
+    fn provide_value(&self, request: crate::rr::Request) {
+        (**self).provide_value(request);
+    }
+    #[inline]
+    fn provide_requested<'d, R: crate::rr::Req>(
+        &self,
+        request: &mut crate::rr::Request<'d, R>,
+    ) -> impl Provided {
+        (**self).provide_requested(request)
+    }
+    #[inline]
+    fn provide_links(
+        &self,
+        links: &mut dyn crate::links::Links,
+    ) -> Result<(), crate::links::LinkError> {
+        (**self).provide_links(links)
+    }
+    #[inline]
+    fn query_links(
+        &self,
+        links: &mut dyn crate::links::Links,
+        query: &crate::query::Query,
+    ) -> Result<(), crate::links::LinkError> {
+        (**self).query_links(links, query)
+    }
+    #[inline]
+    fn get_id(&self) -> Option<crate::id::ID> {
+        (**self).get_id()
+    }
+}
 
 #[cfg(test)]
 mod tests {

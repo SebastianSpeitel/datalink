@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use crate::data::{format, Data, DataExt};
 use crate::id::ID;
 use crate::links::{LinkError, Links};
-use crate::rr::{Req, Request};
+use crate::rr::Request;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -13,8 +13,8 @@ pub enum Error {
     MissingID,
 }
 
-/// Trait for marking `Data` as uniquely identifyable by it's ID
-pub trait Unique: Data {
+/// Trait for marking something as uniquely identifyable by it's ID
+pub trait Unique {
     fn id(&self) -> ID;
 }
 
@@ -27,14 +27,13 @@ impl<D: Unique + ?Sized> Unique for &D {
 }
 
 /// Wrapper for Data with or without an `ID` to make it always `Unique`
-pub struct Fixed<D: Data<R> + ?Sized, T: Borrow<D> = D, R: Req = crate::rr::Unknown> {
+pub struct Fixed<D: Data + ?Sized, T: Borrow<D> = D> {
     data: T,
     id: ID,
     pd: PhantomData<D>,
-    pd_req: PhantomData<R>,
 }
 
-impl<R: Req, D: Data<R> + ?Sized, T: Borrow<D>> Fixed<D, T, R> {
+impl<D: Data + ?Sized, T: Borrow<D>> Fixed<D, T> {
     /// Try to construct a Fixed by trying to get the ID from the data
     #[inline]
     pub fn try_new(data: T) -> Result<Self, Error> {
@@ -43,7 +42,6 @@ impl<R: Req, D: Data<R> + ?Sized, T: Borrow<D>> Fixed<D, T, R> {
             data,
             id,
             pd: PhantomData,
-            pd_req: PhantomData,
         })
     }
 
@@ -56,7 +54,6 @@ impl<R: Req, D: Data<R> + ?Sized, T: Borrow<D>> Fixed<D, T, R> {
             data,
             id,
             pd: PhantomData,
-            pd_req: PhantomData,
         }
     }
 
@@ -68,7 +65,6 @@ impl<R: Req, D: Data<R> + ?Sized, T: Borrow<D>> Fixed<D, T, R> {
             data,
             id,
             pd: PhantomData,
-            pd_req: PhantomData,
         }
     }
 
@@ -79,14 +75,14 @@ impl<R: Req, D: Data<R> + ?Sized, T: Borrow<D>> Fixed<D, T, R> {
     }
 }
 
-impl<R: Req, D: Data<R> + Data + ?Sized, T: Borrow<D>> std::fmt::Debug for Fixed<D, T, R> {
+impl<D: Data + ?Sized, T: Borrow<D>> std::fmt::Debug for Fixed<D, T> {
     #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.data.borrow().format::<format::DEBUG>().fmt(f)
     }
 }
 
-impl<R: Req, D: Data<R> + ?Sized, T: Borrow<D>> AsRef<D> for Fixed<D, T, R> {
+impl<D: Data + ?Sized, T: Borrow<D>> AsRef<D> for Fixed<D, T> {
     /// Returns a reference to the underlying data
     #[inline]
     fn as_ref(&self) -> &D {
@@ -95,10 +91,20 @@ impl<R: Req, D: Data<R> + ?Sized, T: Borrow<D>> AsRef<D> for Fixed<D, T, R> {
 }
 
 #[warn(clippy::missing_trait_methods)]
-impl<R: Req, D: Data<R> + ?Sized, T: Borrow<D>> Data<R> for Fixed<D, T, R> {
+impl<D: Data + ?Sized, T: Borrow<D>> Data for Fixed<D, T> {
     #[inline]
-    fn provide_value<'d>(&self, request: Request<'d, R>) {
-        self.as_ref().provide_value(request)
+    fn provide_value(&self, request: Request) {
+        self.as_ref().provide_value(request);
+    }
+    #[inline]
+    fn provide_requested<'d, R: crate::rr::Req>(
+        &self,
+        _request: &mut Request<'d, R>,
+    ) -> impl super::Provided
+    where
+        Self: Sized,
+    {
+        super::internal::DefaultImpl
     }
     #[inline]
     fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
@@ -122,10 +128,7 @@ impl<R: Req, D: Data<R> + ?Sized, T: Borrow<D>> Data<R> for Fixed<D, T, R> {
         Some(self.id)
     }
 }
-impl<R: Req, D: Data<R> + ?Sized, T: Borrow<D>> Unique for Fixed<D, T, R>
-where
-    Fixed<D, T, R>: Data,
-{
+impl<D: Data + ?Sized, T: Borrow<D>> Unique for Fixed<D, T> {
     #[inline]
     fn id(&self) -> ID {
         #[cfg(debug_assertions)]
@@ -137,50 +140,50 @@ where
     }
 }
 
-impl<R: Req, D: Data<R> + ?Sized, T: Borrow<D>> PartialEq for Fixed<D, T, R> {
+impl<D: Data + ?Sized, T: Borrow<D>> PartialEq for Fixed<D, T> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl<R: Req, D: Data<R> + ?Sized, T: Borrow<D>> Eq for Fixed<D, T, R> {}
+impl<D: Data + ?Sized, T: Borrow<D>> Eq for Fixed<D, T> {}
 
-impl<R: Req, D: Data<R> + ?Sized, T: Borrow<D>> Hash for Fixed<D, T, R> {
+impl<D: Data + ?Sized, T: Borrow<D>> Hash for Fixed<D, T> {
     #[inline]
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.id.hash(state);
     }
 }
 
-pub trait MaybeUnique<R: Req = crate::rr::Unknown>: Data<R> + Sized {
+pub trait MaybeUnique: Data + Sized {
     #[inline]
-    fn try_into_unique(self) -> Result<Fixed<Self, Self, R>, Error> {
+    fn try_into_unique(self) -> Result<Fixed<Self, Self>, Error> {
         Fixed::try_new(self)
     }
 
     #[inline]
     #[must_use]
-    fn into_unique(self, id: ID) -> Fixed<Self, Self, R> {
+    fn into_unique(self, id: ID) -> Fixed<Self, Self> {
         Fixed::new(self, id)
     }
 
     #[inline]
     #[must_use]
-    fn into_unique_with(self, f: impl FnOnce() -> ID) -> Fixed<Self, Self, R> {
+    fn into_unique_with(self, f: impl FnOnce() -> ID) -> Fixed<Self, Self> {
         Fixed::new_with(self, f)
     }
 
     #[cfg(feature = "random")]
     #[inline]
     #[must_use]
-    fn into_unique_random(self) -> Fixed<Self, Self, R> {
+    fn into_unique_random(self) -> Fixed<Self, Self> {
         Fixed::new_random(self)
     }
 }
 
 /// Extension trait for `Data` to add methods for creating `Unique` data
-impl<R: Req, D: Data<R>> MaybeUnique<R> for D {}
+impl<D: Data> MaybeUnique for D {}
 
 #[cfg(test)]
 mod tests {

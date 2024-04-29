@@ -20,6 +20,7 @@ pub mod well_known;
 pub use datalink_derive::Data;
 // pub mod specific;
 
+#[doc(hidden)]
 pub mod rr;
 
 #[cfg_attr(not(feature = "unique"), doc(hidden))]

@@ -191,13 +191,10 @@ impl Receiver for &mut dyn Receiver {
         (**self).other_boxed(value);
     }
     #[inline]
-    fn accepts<U: Any + ?Sized>() -> bool {
+    fn accepts<U: 'static + ?Sized>() -> bool {
         true
     }
 }
-
-// #[warn(clippy::missing_trait_methods)]
-// impl<T> Receiver for &mut Option<T> where Option<T>: Receiver {}
 
 #[warn(clippy::missing_trait_methods)]
 impl<T: Receiver> Receiver for &mut T {
@@ -335,7 +332,8 @@ impl Receiver for Option<String> {
         Self: Sized,
     {
         use core::any::TypeId;
-        TypeId::of::<String>() == TypeId::of::<T>() || TypeId::of::<&str>() == TypeId::of::<T>()
+        let id = TypeId::of::<T>();
+        id == TypeId::of::<String>() || id == TypeId::of::<&str>()
     }
 }
 
@@ -356,6 +354,7 @@ impl Receiver for Option<Vec<u8>> {
         Self: Sized,
     {
         use core::any::TypeId;
-        TypeId::of::<Vec<u8>>() == TypeId::of::<T>() || TypeId::of::<&[u8]>() == TypeId::of::<T>()
+        let id = TypeId::of::<T>();
+        id == TypeId::of::<Vec<u8>>() || id == TypeId::of::<&[u8]>()
     }
 }

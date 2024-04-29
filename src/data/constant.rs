@@ -2,7 +2,6 @@ use crate::data::unique::Unique;
 use crate::data::{format, Data, DataExt};
 use crate::id::ID;
 use crate::links::{LinkError, Links};
-use crate::rr::Req;
 use crate::value::ValueRequest;
 
 /// Wrapper for data with compile-time constant ID
@@ -15,7 +14,7 @@ use crate::value::ValueRequest;
 ///
 /// pub const ROOT: Const<1234> = Const::empty();
 ///
-/// assert!(datalink::Data::<datalink::value::Unknown>::get_id(&ROOT).is_some());
+/// assert!(ROOT.get_id().is_some());
 /// assert_eq!(size_of_val(&ROOT), 0);
 /// ```
 ///
@@ -23,9 +22,14 @@ use crate::value::ValueRequest;
 /// The given `ID` must be non-zero to be able to use it as `NonZeroU128`
 #[derive(Clone, Copy)]
 #[repr(transparent)]
-pub struct Const<const ID: u128, D: Data + ?Sized = ()>(D);
+pub struct Const<const ID: u128, D: ?Sized = ()>(D)
+where
+    for<'d> &'d D: Data;
 
-impl<const I: u128, D: Data + ?Sized> Const<I, D> {
+impl<const I: u128, D: ?Sized> Const<I, D>
+where
+    for<'d> &'d D: Data,
+{
     #[inline]
     pub const fn new(data: D) -> Self
     where
@@ -35,8 +39,9 @@ impl<const I: u128, D: Data + ?Sized> Const<I, D> {
     }
 }
 
-impl<const I: u128, D: Data> Default for Const<I, D>
+impl<const I: u128, D> Default for Const<I, D>
 where
+    for<'d> &'d D: Data,
     D: Default,
 {
     #[inline]
@@ -45,39 +50,67 @@ where
     }
 }
 
-impl<const I: u128, D: Data + ?Sized> std::fmt::Debug for Const<I, D> {
+impl<const I: u128, D: ?Sized> std::fmt::Debug for Const<I, D>
+where
+    for<'d> &'d D: Data,
+{
     #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.format::<format::DEBUG>().fmt(f)
     }
 }
 
-impl<const I: u128, D: Data> From<D> for Const<I, D> {
+impl<const I: u128, D> From<D> for Const<I, D>
+where
+    for<'d> &'d D: Data,
+{
     #[inline]
     fn from(value: D) -> Self {
         Self::new(value)
     }
 }
 
-impl<const I: u128, S: Data + ?Sized, O: Data + ?Sized> PartialEq<O> for Const<I, S> {
+impl<const I: u128, S: ?Sized, O: Data + ?Sized> PartialEq<O> for Const<I, S>
+where
+    for<'d> &'d S: Data + Unique,
+{
     #[inline]
     fn eq(&self, other: &O) -> bool {
-        other.get_id().is_some_and(|id| id == self.id())
+        other.get_id().is_some_and(|id| id == (&self.0).id())
     }
 }
-impl<const I: u128, D: Data + ?Sized> Eq for Const<I, D> {}
+impl<const I: u128, D: ?Sized> Eq for Const<I, D> where for<'d> &'d D: Data + Unique {}
 
 #[warn(clippy::missing_trait_methods)]
-impl<const I: u128, R: Req, D: Data + ?Sized> Data<R> for Const<I, D> {
+impl<const I: u128, D: ?Sized> Data for Const<I, D>
+where
+    for<'d> &'d D: Data,
+{
     #[inline]
-    fn provide_value<'d>(&self, mut request: ValueRequest<'d, R>) {
-        let request = ValueRequest::new(&mut request.0 as &mut dyn crate::rr::Receiver);
-        self.0.provide_value(request)
+    fn provide_value(&self, request: ValueRequest) {
+        (&self.0).provide_value(request);
+    }
+
+    #[inline]
+    fn provide_requested<'d, R: crate::rr::Req>(
+        &self,
+        request: &mut ValueRequest<'d, R>,
+    ) -> impl super::Provided
+    where
+        Self: Sized,
+    {
+        use super::Provided;
+        let data = &self.0;
+        if (&data).provide_requested(request).was_provided() {
+            true
+        } else {
+            false
+        }
     }
 
     #[inline]
     fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-        self.0.provide_links(links)
+        (&self.0).provide_links(links)
     }
 
     #[inline]
@@ -86,7 +119,7 @@ impl<const I: u128, R: Req, D: Data + ?Sized> Data<R> for Const<I, D> {
         links: &mut dyn Links,
         query: &crate::query::Query,
     ) -> Result<(), LinkError> {
-        self.0.query_links(links, query)
+        (&self.0).query_links(links, query)
     }
 
     #[inline(always)]
@@ -94,7 +127,10 @@ impl<const I: u128, R: Req, D: Data + ?Sized> Data<R> for Const<I, D> {
         ID::try_new(I).ok()
     }
 }
-impl<const I: u128, D: Data + ?Sized> Unique for Const<I, D> {
+impl<const I: u128, D: ?Sized> Unique for Const<I, D>
+where
+    for<'d> &'d D: Data,
+{
     #[inline]
     fn id(&self) -> ID {
         debug_assert_ne!(I, 0, "ID must be non-zero");
@@ -118,7 +154,7 @@ mod tests {
     fn has_id() {
         let empty = Const::<123>::empty();
 
-        assert!(Data::<crate::rr::Unknown>::get_id(&empty).is_some());
+        assert!(empty.get_id().is_some());
     }
 
     #[test]

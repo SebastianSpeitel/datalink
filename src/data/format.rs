@@ -3,15 +3,12 @@ use std::{
     marker::PhantomData,
 };
 
+use crate::links::{Links, MaybeKeyed, Result, CONTINUE};
+use crate::value::ValueRequest;
 use crate::{
     data::{BoxedData, Data},
     links::Link,
 };
-use crate::{
-    links::{Links, MaybeKeyed, Result, CONTINUE},
-    rr::Req,
-};
-use crate::{rr::Unknown, value::ValueRequest};
 
 #[derive(Default, Debug)]
 pub struct FORMAT<const SERIAL: bool = false, const MAX_DEPTH: u16 = 6, const VERBOSITY: i8 = 0>;
@@ -24,6 +21,7 @@ pub trait Format {
     type State: Default + Copy;
 
     #[inline]
+    #[must_use]
     fn verbosity() -> i8 {
         0
     }
@@ -197,31 +195,29 @@ impl<const SERIAL: bool, const MAX_DEPTH: u16, const VERBOSITY: i8> Format
     }
 }
 
-pub struct FormattableData<'d, F: Format, D: Data<R> + ?Sized, R: Req = Unknown> {
+pub struct FormattableData<'d, F: Format, D: Data + ?Sized> {
     data: &'d D,
     phantom: PhantomData<F>,
-    phantom_req: PhantomData<R>,
 }
 
-impl<'d, F: Format, D: Data<R> + ?Sized, R: Req> From<&'d D> for FormattableData<'d, F, D, R> {
+impl<'d, F: Format, D: Data + ?Sized> From<&'d D> for FormattableData<'d, F, D> {
     #[inline]
     fn from(data: &'d D) -> Self {
         Self {
             data,
             phantom: PhantomData,
-            phantom_req: PhantomData,
         }
     }
 }
 
-impl<F: Format, D: Data<R> + Data + ?Sized, R: Req> Display for FormattableData<'_, F, D, R> {
+impl<F: Format, D: Data + Data + ?Sized> Display for FormattableData<'_, F, D> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         F::fmt(f, self.data, F::init_state())
     }
 }
 
-impl<F: Format, D: Data<R> + Data + ?Sized, R: Req> Debug for FormattableData<'_, F, D, R> {
+impl<F: Format, D: Data + Data + ?Sized> Debug for FormattableData<'_, F, D> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         F::fmt(f, self.data, F::init_state())
@@ -375,6 +371,11 @@ impl crate::rr::Receiver for fmt::DebugSet<'_, '_> {
     #[inline]
     fn other_ref(&mut self, value: &dyn std::any::Any) {
         self.entry(&format_args!("other: {value:?}"));
+    }
+
+    #[inline]
+    fn accepts<T: 'static + ?Sized>() -> bool {
+        true
     }
 }
 

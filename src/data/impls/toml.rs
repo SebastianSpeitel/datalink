@@ -1,14 +1,21 @@
 use ::toml::{Table, Value as Val};
 
-use crate::data::Data;
+use crate::data::{Data, Provided};
 use crate::links::{LinkError, Links, LinksExt};
 use crate::rr::{Req, Request};
 
-impl<R: Req> Data<R> for Val {
+impl Data for Val {
     #[inline]
-    fn provide_value<'d>(&self, mut request: Request<'d, R>) {
+    fn provide_value<'d>(&self, mut request: Request<'d>) {
+        self.provide_requested(&mut request).debug_assert_provided();
+    }
+    #[inline]
+    fn provide_requested<'d, R: Req>(
+        &self,
+        request: &mut Request<'d, R>,
+    ) -> impl Provided {
         match self {
-            Val::String(s) => request.provide_ref(s),
+            Val::String(s) => request.provide_str(s),
             Val::Integer(i) => request.provide_ref(i),
             Val::Float(f) => request.provide_ref(f),
             Val::Boolean(b) => request.provide_ref(b),
@@ -25,8 +32,8 @@ impl<R: Req> Data<R> for Val {
     #[inline]
     fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
         match self {
-            Val::Table(table) => Data::<R>::provide_links(table, links),
-            Val::Array(array) => Data::<R>::provide_links(array, links),
+            Val::Table(table) => table.provide_links(links),
+            Val::Array(array) => array.provide_links(links),
             _ => Ok(()),
         }
     }
@@ -38,14 +45,20 @@ impl<R: Req> Data<R> for Val {
         query: &crate::query::Query,
     ) -> Result<(), LinkError> {
         match self {
-            Val::Table(table) => Data::<R>::query_links(table, links, query),
-            Val::Array(array) => Data::<R>::query_links(array, links, query),
+            Val::Table(table) => table.query_links(links, query),
+            Val::Array(array) => array.query_links(links, query),
             _ => Ok(()),
         }
     }
 }
 
-impl<R: Req> Data<R> for Table {
+impl Data for Table {
+    #[inline]
+    fn provide_requested<'d, R: Req>(
+        &self,
+        _request: &mut Request<'d, R>,
+    ) -> impl Provided {
+    }
     #[inline]
     fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
         links.extend(self.iter().map(|(k, v)| (k.to_owned(), v.to_owned())))?;
