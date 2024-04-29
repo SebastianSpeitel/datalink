@@ -51,12 +51,6 @@ impl Data for Val {
 
 impl Data for Table {
     #[inline]
-    fn provide_requested<'d, R: Req>(
-        &self,
-        _request: &mut Request<'d, R>,
-    ) -> impl Provided {
-    }
-    #[inline]
     fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
         links.extend(self.iter().map(|(k, v)| (k.to_owned(), v.to_owned())))?;
         Ok(())

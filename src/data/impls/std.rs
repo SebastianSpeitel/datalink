@@ -250,9 +250,6 @@ where
     V::Owned: Data,
 {
     #[inline]
-    fn provide_requested<'d, R: Req>(&self, _request: &mut Request<'d, R>) -> impl Provided {}
-
-    #[inline]
     fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
         links.extend(self.iter().map(|(k, t)| (k.to_owned(), t.to_owned())))?;
         Ok(())
