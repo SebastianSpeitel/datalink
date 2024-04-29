@@ -344,7 +344,6 @@ pub trait DataExt: Data {
     }
 
     #[cfg(all(feature = "well_known", feature = "unique"))]
-    #[inline]
     fn is_tagged_with(&self, tag: &impl crate::data::unique::Unique) -> Result<bool, LinkError> {
         let query = {
             use crate::query::prelude::*;

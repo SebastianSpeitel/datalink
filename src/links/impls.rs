@@ -94,9 +94,10 @@ impl Links for Option<(BoxedData, BoxedData)> {
 impl Links for Option<(Option<BoxedData>, BoxedData)> {
     #[inline]
     fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result {
-        if self.is_none() {
-            self.replace((key, target));
+        if self.is_some() {
+            return BREAK;
         }
+        self.replace((key, target));
         BREAK
     }
 }
@@ -104,9 +105,10 @@ impl Links for Option<(Option<BoxedData>, BoxedData)> {
 impl Links for Option<BoxedData> {
     #[inline]
     fn push(&mut self, target: BoxedData, _key: Option<BoxedData>) -> Result {
-        if self.is_none() {
-            self.replace(target);
+        if self.is_some() {
+            return BREAK;
         }
+        self.replace(target);
         BREAK
     }
 }

@@ -21,7 +21,6 @@ pub trait Format {
     type State: Default + Copy;
 
     #[inline]
-    #[must_use]
     fn verbosity() -> i8 {
         0
     }
