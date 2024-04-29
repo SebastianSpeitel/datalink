@@ -34,6 +34,15 @@ impl Data for Val {
             _ => Ok(()),
         }
     }
+
+    #[inline]
+    fn get_id(&self) -> Option<crate::id::ID> {
+        match self {
+            #[cfg(feature = "well_known")]
+            Val::Null => crate::well_known::NONE.get_id(),
+            _ => None,
+        }
+    }
 }
 
 impl Data for Map<String, Val> {
