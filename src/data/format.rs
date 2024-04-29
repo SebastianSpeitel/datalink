@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::links::{Links, MaybeKeyed, Result, CONTINUE};
-use crate::value::ValueRequest;
+use crate::rr::Request;
 use crate::{
     data::{BoxedData, Data},
     links::Link,
@@ -133,7 +133,7 @@ pub trait Format {
         data: &(impl Data + ?Sized),
         state: Self::State,
     ) {
-        let request = ValueRequest::new(set as &mut dyn crate::value::ValueReceiver);
+        let request = Request::new(set as &mut dyn crate::value::ValueReceiver);
         data.provide_value(request);
     }
 
@@ -209,14 +209,14 @@ impl<'d, F: Format, D: Data + ?Sized> From<&'d D> for FormattableData<'d, F, D> 
     }
 }
 
-impl<F: Format, D: Data + Data + ?Sized> Display for FormattableData<'_, F, D> {
+impl<F: Format, D: Data + ?Sized> Display for FormattableData<'_, F, D> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         F::fmt(f, self.data, F::init_state())
     }
 }
 
-impl<F: Format, D: Data + Data + ?Sized> Debug for FormattableData<'_, F, D> {
+impl<F: Format, D: Data + ?Sized> Debug for FormattableData<'_, F, D> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         F::fmt(f, self.data, F::init_state())

@@ -1,8 +1,8 @@
 use crate::data::unique::Unique;
-use crate::data::{format, Data, DataExt};
+use crate::data::{format, Data, DataExt, Provided};
 use crate::id::ID;
 use crate::links::{LinkError, Links};
-use crate::value::ValueRequest;
+use crate::rr::Request;
 
 /// Wrapper for data with compile-time constant ID
 ///
@@ -87,19 +87,18 @@ where
     for<'d> &'d D: Data,
 {
     #[inline]
-    fn provide_value(&self, request: ValueRequest) {
+    fn provide_value(&self, request: Request) {
         (&self.0).provide_value(request);
     }
 
     #[inline]
     fn provide_requested<'d, R: crate::rr::Req>(
         &self,
-        request: &mut ValueRequest<'d, R>,
-    ) -> impl super::Provided
+        request: &mut Request<'d, R>,
+    ) -> impl Provided
     where
         Self: Sized,
     {
-        use super::Provided;
         let data = &self.0;
         if (&data).provide_requested(request).was_provided() {
             true

@@ -114,7 +114,6 @@ mod net {
     #[cfg(not(feature = "well_known"))]
     const PORT: &str = "port";
 
-    use crate::data::Provided;
     #[cfg(feature = "well_known")]
     use crate::well_known::net::{IP, PORT};
 
@@ -176,6 +175,7 @@ mod net {
         fn provide_value(&self, mut request: Request) {
             self.provide_requested(&mut request).debug_assert_provided();
         }
+
         #[inline]
         fn provide_requested<'d, R: Req>(&self, request: &mut Request<'d, R>) -> impl Provided {
             request.provide_ref(self);
@@ -223,6 +223,7 @@ mod net {
         fn provide_value(&self, mut request: Request) {
             self.provide_requested(&mut request).debug_assert_provided();
         }
+
         #[inline]
         fn provide_requested<'d, R: Req>(&self, request: &mut Request<'d, R>) -> impl Provided {
             match self {
