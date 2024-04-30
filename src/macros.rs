@@ -52,16 +52,16 @@ macro_rules! impl_data {
         impl $crate::data::Data for $name {
             $(
                 #[inline]
-                fn provide_value(&self, mut request: $crate::value::ValueRequest<'_>) {
+                fn provide_value(&self, mut request: $crate::value::ValueRequest) {
                     $(
                         request.provide_owned($val);
                     )+
                 }
 
                 #[inline]
-                fn provide_requested<'d, R: $crate::value::Req>(
+                fn provide_requested<R: $crate::value::Req>(
                     &self,
-                    request: &mut $crate::value::ValueRequest<'d, R>,
+                    request: &mut $crate::value::ValueRequest<R>,
                 ) -> impl $crate::data::Provided {
                     $(
                         request.provide_owned($val);

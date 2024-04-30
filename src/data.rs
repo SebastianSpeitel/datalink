@@ -31,7 +31,7 @@ pub type BoxedData = Box<dyn Data>;
 pub trait Data {
     #[allow(unused_variables)]
     #[inline]
-    fn provide_value(&self, request: ValueRequest<'_>) {}
+    fn provide_value(&self, request: ValueRequest) {}
 
     #[allow(unused_variables)]
     #[inline]
@@ -63,7 +63,7 @@ pub trait Data {
     #[inline]
     #[must_use]
     #[allow(unused_variables)]
-    fn provide_requested<'d, R: Req>(&self, request: &mut ValueRequest<'d, R>) -> impl Provided
+    fn provide_requested<R: Req>(&self, request: &mut ValueRequest<R>) -> impl Provided
     where
         Self: Sized,
     {

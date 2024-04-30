@@ -89,9 +89,9 @@ impl<D: Data + ?Sized, T: Borrow<D>> Data for Fixed<D, T> {
         self.as_ref().provide_value(request);
     }
     #[inline]
-    fn provide_requested<'d, R: crate::rr::Req>(
+    fn provide_requested<R: crate::rr::Req>(
         &self,
-        _request: &mut Request<'d, R>,
+        _request: &mut Request<R>,
     ) -> impl super::Provided
     where
         Self: Sized,

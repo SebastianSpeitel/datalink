@@ -92,10 +92,7 @@ where
     }
 
     #[inline]
-    fn provide_requested<'d, R: crate::rr::Req>(
-        &self,
-        request: &mut Request<'d, R>,
-    ) -> impl Provided
+    fn provide_requested<R: crate::rr::Req>(&self, request: &mut Request<R>) -> impl Provided
     where
         Self: Sized,
     {

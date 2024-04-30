@@ -8,7 +8,7 @@ impl Data for () {
         self.provide_requested(&mut request).debug_assert_provided();
     }
     #[inline]
-    fn provide_requested<'d, R: Req>(&self, request: &mut Request<'d, R>) -> impl Provided {
+    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
         request.provide_owned(meta::IsUnit);
     }
 }
@@ -21,7 +21,7 @@ macro_rules! impl_copy_data {
                 self.provide_requested(&mut request).debug_assert_provided();
             }
             #[inline]
-            fn provide_requested<'d, R: Req>(&self, request: &mut Request<'d, R>) -> impl Provided {
+            fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
                 request.$fn(*self);
             }
         }
@@ -49,7 +49,7 @@ impl Data for str {
         request.provide_str(self);
     }
     #[inline]
-    fn provide_requested<'d, R: Req>(&self, request: &mut Request<'d, R>) -> impl Provided {
+    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
         request.provide_str(self);
     }
 }
@@ -60,7 +60,7 @@ impl Data for &str {
         request.provide_str(self);
     }
     #[inline]
-    fn provide_requested<'d, R: Req>(&self, request: &mut Request<'d, R>) -> impl Provided {
+    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
         request.provide_str(self);
     }
 }
@@ -71,7 +71,7 @@ impl Data for [u8] {
         request.provide_bytes(self);
     }
     #[inline]
-    fn provide_requested<'d, R: Req>(&self, request: &mut Request<'d, R>) -> impl Provided {
+    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
         request.provide_bytes(self);
     }
 }
@@ -82,7 +82,7 @@ impl Data for &[u8] {
         request.provide_bytes(self);
     }
     #[inline]
-    fn provide_requested<'d, R: Req>(&self, request: &mut Request<'d, R>) -> impl Provided {
+    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
         request.provide_bytes(self);
     }
 }
@@ -95,7 +95,7 @@ impl Data for usize {
 
     #[allow(clippy::cast_possible_truncation)]
     #[inline]
-    fn provide_requested<'d, R: Req>(&self, request: &mut Request<'d, R>) -> impl Provided {
+    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
         if usize::BITS >= u128::BITS {
             request.provide_u128(*self as u128);
         }
@@ -122,7 +122,7 @@ impl Data for isize {
 
     #[allow(clippy::cast_possible_truncation)]
     #[inline]
-    fn provide_requested<'d, R: Req>(&self, request: &mut Request<'d, R>) -> impl Provided {
+    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
         if isize::BITS >= i128::BITS {
             request.provide_i128(*self as i128);
         }
@@ -151,7 +151,7 @@ macro_rules! impl_nonzero_data {
                 }
             }
             #[inline]
-            fn provide_requested<'d, R: Req>(&self, request: &mut Request<'d, R>) -> impl Provided {
+            fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
                 self.get().provide_requested(request).was_provided()
             }
         }
@@ -182,7 +182,7 @@ impl<D: Data> Data for Option<D> {
         }
     }
     #[inline]
-    fn provide_requested<'d, R: Req>(&self, request: &mut Request<'d, R>) -> impl Provided {
+    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
         if let Some(d) = self {
             request.provide_owned(meta::IsSome);
             d.provide_requested(request).was_provided()
@@ -238,7 +238,7 @@ where
     }
 
     #[inline]
-    fn provide_requested<'d, R: Req>(&self, request: &mut Request<'d, R>) -> impl Provided {
+    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
         match self {
             Self::Borrowed(data) => {
                 request.provide_owned(meta::IsBorrowed);
@@ -304,7 +304,7 @@ impl<D: Data> Data for core::cell::OnceCell<D> {
         self.get().provide_value(request);
     }
     #[inline]
-    fn provide_requested<'d, R: Req>(&self, request: &mut Request<'d, R>) -> impl Provided {
+    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
         self.get().provide_requested(request).was_provided()
     }
     #[inline]
@@ -332,7 +332,7 @@ impl<D: Data> Data for std::sync::OnceLock<D> {
         self.get().provide_value(request);
     }
     #[inline]
-    fn provide_requested<'d, R: Req>(&self, request: &mut Request<'d, R>) -> impl Provided {
+    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
         self.get().provide_requested(request).was_provided()
     }
     #[inline]

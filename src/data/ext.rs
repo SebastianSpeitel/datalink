@@ -4,7 +4,7 @@ use crate::data::BoxedData;
 use crate::data::{format, Data, Provided};
 use crate::links::{LinkError, Links, Result};
 use crate::query::Query;
-use crate::rr::{IgnoreMeta, Receiver, RefOption, Req, Request};
+use crate::rr::{Receiver, RefOption, Req, Request};
 
 pub trait DataExt: Data {
     #[inline]
@@ -16,7 +16,7 @@ pub trait DataExt: Data {
         Option<T>: Receiver,
     {
         let mut value = None;
-        let mut request: Request<'_, IgnoreMeta<RefOption<T>>> = Request::new(&mut value);
+        let mut request = Request::<RefOption<T>>::new(&mut value);
         if self.provide_requested(&mut request).was_provided() {
             return value;
         }

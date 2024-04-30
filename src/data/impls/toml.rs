@@ -10,7 +10,7 @@ impl Data for Val {
         self.provide_requested(&mut request).debug_assert_provided();
     }
     #[inline]
-    fn provide_requested<'d, R: Req>(&self, request: &mut Request<'d, R>) -> impl Provided {
+    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
         match self {
             Val::String(s) => request.provide_str(s),
             Val::Integer(i) => request.provide_ref(i),

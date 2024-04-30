@@ -154,11 +154,11 @@ fn provide_value<R: Req>(value: &Value, request: &mut ValueRequest<R>) {
 
 impl crate::Data for Value {
     #[inline]
-    fn provide_value(&self, mut request: ValueRequest<'_>) {
+    fn provide_value(&self, mut request: ValueRequest) {
         provide_value(self, &mut request);
     }
     #[inline]
-    fn provide_requested<'d, R: Req>(&self, request: &mut ValueRequest<'d, R>) -> impl Provided {
+    fn provide_requested<R: Req>(&self, request: &mut ValueRequest<R>) -> impl Provided {
         provide_value(self, request);
     }
 }
@@ -295,13 +295,13 @@ impl ValueReceiver for AllValues {
 
 impl crate::Data for AllValues {
     #[inline]
-    fn provide_value(&self, mut request: ValueRequest<'_>) {
+    fn provide_value(&self, mut request: ValueRequest) {
         for value in &self.0 {
             provide_value(value, &mut request);
         }
     }
     #[inline]
-    fn provide_requested<'d, R: Req>(&self, request: &mut ValueRequest<'d, R>) -> impl Provided {
+    fn provide_requested<R: Req>(&self, request: &mut ValueRequest<R>) -> impl Provided {
         for value in &self.0 {
             provide_value(value, request);
         }

@@ -19,9 +19,9 @@ macro_rules! impl_deref {
                 (**self).provide_value(request)
             }
             #[inline]
-            fn provide_requested<'d, R: $crate::rr::Req>(
+            fn provide_requested<R: $crate::rr::Req>(
                 &self,
-                request: &mut $crate::rr::Request<'d, R>,
+                request: &mut $crate::rr::Request<R>,
             ) -> impl $crate::data::Provided {
                 (**self).provide_requested(request)
             }
@@ -72,9 +72,9 @@ impl Data for Box<dyn Data> {
         (**self).provide_value(request);
     }
     #[inline]
-    fn provide_requested<'d, R: crate::rr::Req>(
+    fn provide_requested<R: crate::rr::Req>(
         &self,
-        _request: &mut crate::rr::Request<'d, R>,
+        _request: &mut crate::rr::Request<R>,
     ) -> impl Provided {
         super::internal::DefaultImpl
     }
@@ -106,9 +106,9 @@ impl Data for &dyn Data {
         (**self).provide_value(request);
     }
     #[inline]
-    fn provide_requested<'d, R: crate::rr::Req>(
+    fn provide_requested<R: crate::rr::Req>(
         &self,
-        _request: &mut crate::rr::Request<'d, R>,
+        _request: &mut crate::rr::Request<R>,
     ) -> impl Provided {
         super::internal::DefaultImpl
     }
