@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use crate::{
     links::{LinkError, Links, LinksExt},
-    value::ValueBuiler,
+    value::{Req, ValueRequest},
 };
 
 #[cfg(feature = "unique")]
@@ -31,7 +31,7 @@ pub type BoxedData = Box<dyn Data>;
 pub trait Data {
     #[allow(unused_variables)]
     #[inline]
-    fn provide_value<'d>(&'d self, builder: &mut dyn ValueBuiler<'d>) {}
+    fn provide_value(&self, request: ValueRequest) {}
 
     #[allow(unused_variables)]
     #[inline]
@@ -59,29 +59,15 @@ pub trait Data {
     fn get_id(&self) -> Option<crate::id::ID> {
         None
     }
-}
 
-#[warn(clippy::missing_trait_methods)]
-impl<D: Data + ?Sized> Data for &D {
     #[inline]
-    fn provide_value<'d>(&'d self, builder: &mut dyn ValueBuiler<'d>) {
-        (*self).provide_value(builder)
-    }
-    #[inline]
-    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-        (*self).provide_links(links)
-    }
-    #[inline]
-    fn query_links(
-        &self,
-        links: &mut dyn Links,
-        query: &crate::query::Query,
-    ) -> Result<(), LinkError> {
-        (*self).query_links(links, query)
-    }
-    #[inline]
-    fn get_id(&self) -> Option<crate::id::ID> {
-        (*self).get_id()
+    #[must_use]
+    #[allow(unused_variables)]
+    fn provide_requested<R: Req>(&self, request: &mut ValueRequest<R>) -> impl Provided
+    where
+        Self: Sized,
+    {
+        internal::DefaultImpl
     }
 }
 
@@ -118,6 +104,44 @@ impl Debug for dyn Data + Sync + Send {
     #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.format::<format::DEBUG>().fmt(f)
+    }
+}
+
+mod internal {
+    pub(super) struct DefaultImpl;
+    impl super::Provided for DefaultImpl {
+        #[inline]
+        fn was_provided(&self) -> bool {
+            false
+        }
+    }
+}
+
+pub trait Provided {
+    #[inline]
+    fn was_provided(&self) -> bool {
+        true
+    }
+
+    #[inline]
+    #[track_caller]
+    fn assert_provided(&self) {
+        assert!(self.was_provided());
+    }
+
+    #[inline]
+    #[track_caller]
+    fn debug_assert_provided(&self) {
+        debug_assert!(self.was_provided());
+    }
+}
+
+impl Provided for () {}
+
+impl Provided for bool {
+    #[inline]
+    fn was_provided(&self) -> bool {
+        *self
     }
 }
 

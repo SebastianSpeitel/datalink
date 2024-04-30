@@ -1,18 +1,27 @@
 use ::toml::{Table, Value as Val};
 
-use crate::data::Data;
+use crate::data::{Data, Provided};
 use crate::links::{LinkError, Links, LinksExt};
-use crate::value::ValueBuiler;
+use crate::rr::{Req, Request};
 
 impl Data for Val {
     #[inline]
-    fn provide_value<'d>(&'d self, value: &mut dyn ValueBuiler<'d>) {
+    fn provide_value(&self, mut request: Request) {
+        self.provide_requested(&mut request).debug_assert_provided();
+    }
+    #[inline]
+    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
         match self {
-            Val::String(s) => value.str(s.into()),
-            Val::Integer(i) => value.i64(*i),
-            Val::Float(f) => value.f64(*f),
-            Val::Boolean(b) => value.bool(*b),
-            Val::Datetime(dt) => value.str(dt.to_string().into()),
+            Val::String(s) => request.provide_str(s),
+            Val::Integer(i) => request.provide_ref(i),
+            Val::Float(f) => request.provide_ref(f),
+            Val::Boolean(b) => request.provide_ref(b),
+            Val::Datetime(dt) => {
+                request.provide_ref(dt);
+                if R::requests::<String>() {
+                    request.provide_str_owned(dt.to_string());
+                }
+            }
             Val::Array(..) | Val::Table(..) => {}
         }
     }

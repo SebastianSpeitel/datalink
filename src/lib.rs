@@ -18,6 +18,9 @@ pub mod well_known;
 #[cfg(feature = "derive")]
 pub use datalink_derive::Data;
 
+#[doc(hidden)]
+pub mod rr;
+
 #[cfg_attr(not(feature = "unique"), doc(hidden))]
 pub mod id;
 

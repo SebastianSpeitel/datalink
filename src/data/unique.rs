@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use crate::data::{format, Data, DataExt};
 use crate::id::ID;
 use crate::links::{LinkError, Links};
-use crate::value::ValueBuiler;
+use crate::rr::Request;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -13,17 +13,9 @@ pub enum Error {
     MissingID,
 }
 
-/// Trait for marking `Data` as uniquely identifyable by it's ID
-pub trait Unique: Data {
+/// Trait for marking something as uniquely identifyable by it's ID
+pub trait Unique {
     fn id(&self) -> ID;
-}
-
-#[warn(clippy::missing_trait_methods)]
-impl<D: Unique + ?Sized> Unique for &D {
-    #[inline]
-    fn id(&self) -> ID {
-        (*self).id()
-    }
 }
 
 /// Wrapper for Data with or without an `ID` to make it always `Unique`
@@ -78,7 +70,7 @@ impl<D: Data + ?Sized, T: Borrow<D>> Fixed<D, T> {
 impl<D: Data + ?Sized, T: Borrow<D>> std::fmt::Debug for Fixed<D, T> {
     #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.format::<format::DEBUG>().fmt(f)
+        self.data.borrow().format::<format::DEBUG>().fmt(f)
     }
 }
 
@@ -93,8 +85,18 @@ impl<D: Data + ?Sized, T: Borrow<D>> AsRef<D> for Fixed<D, T> {
 #[warn(clippy::missing_trait_methods)]
 impl<D: Data + ?Sized, T: Borrow<D>> Data for Fixed<D, T> {
     #[inline]
-    fn provide_value<'d>(&'d self, builder: &mut dyn ValueBuiler<'d>) {
-        self.as_ref().provide_value(builder)
+    fn provide_value(&self, request: Request) {
+        self.as_ref().provide_value(request);
+    }
+    #[inline]
+    fn provide_requested<R: crate::rr::Req>(
+        &self,
+        _request: &mut Request<R>,
+    ) -> impl super::Provided
+    where
+        Self: Sized,
+    {
+        super::internal::DefaultImpl
     }
     #[inline]
     fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
@@ -130,15 +132,13 @@ impl<D: Data + ?Sized, T: Borrow<D>> Unique for Fixed<D, T> {
     }
 }
 
-impl<D: Data + ?Sized, T: Borrow<D>, O: Data> PartialEq<O> for Fixed<D, T> {
+impl<D: Data + ?Sized, T: Borrow<D>, O: Data + ?Sized> PartialEq<O> for Fixed<D, T> {
     #[inline]
     fn eq(&self, other: &O) -> bool {
-        match other.get_id() {
-            Some(id) => id == self.id,
-            None => false,
-        }
+        other.get_id().is_some_and(|id| id == self.id)
     }
 }
+
 impl<D: Data + ?Sized, T: Borrow<D>> Eq for Fixed<D, T> {}
 
 impl<D: Data + ?Sized, T: Borrow<D>> Hash for Fixed<D, T> {

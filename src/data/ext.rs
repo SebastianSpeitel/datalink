@@ -1,214 +1,276 @@
-use std::borrow::Cow;
-
 #[cfg(feature = "std")]
 use crate::data::BoxedData;
 
-use crate::data::{format, Data};
+use crate::data::{format, Data, Provided};
 use crate::links::{LinkError, Links, Result};
 use crate::query::Query;
+use crate::rr::{Receiver, RefOption, Req, Request};
 
 pub trait DataExt: Data {
     #[inline]
     #[must_use]
-    fn as_bool(&self) -> Option<bool> {
+    fn as_<T>(&self) -> Option<T>
+    where
+        Self: Sized,
+        RefOption<T>: for<'d> Req<Receiver<'d> = &'d mut Option<T>>,
+        Option<T>: Receiver,
+    {
         let mut value = None;
-        self.provide_value(&mut value);
-        value
-    }
-
-    #[inline]
-    #[must_use]
-    fn as_u8(&self) -> Option<u8> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
-    }
-
-    #[inline]
-    #[must_use]
-    fn as_i8(&self) -> Option<i8> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
-    }
-
-    #[inline]
-    #[must_use]
-    fn as_u16(&self) -> Option<u16> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
-    }
-
-    #[inline]
-    #[must_use]
-    fn as_i16(&self) -> Option<i16> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
-    }
-
-    #[inline]
-    #[must_use]
-    fn as_u32(&self) -> Option<u32> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
-    }
-
-    #[inline]
-    #[must_use]
-    fn as_i32(&self) -> Option<i32> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
-    }
-
-    #[inline]
-    #[must_use]
-    fn as_u64(&self) -> Option<u64> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
-    }
-
-    #[inline]
-    #[must_use]
-    fn as_i64(&self) -> Option<i64> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
-    }
-
-    #[inline]
-    #[must_use]
-    fn as_u128(&self) -> Option<u128> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
-    }
-
-    #[inline]
-    #[must_use]
-    fn as_i128(&self) -> Option<i128> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
-    }
-
-    #[inline]
-    #[must_use]
-    fn as_f32(&self) -> Option<f32> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
-    }
-
-    #[inline]
-    #[must_use]
-    fn as_f64(&self) -> Option<f64> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
-    }
-
-    #[inline]
-    #[must_use]
-    fn as_str(&self) -> Option<Cow<str>> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
-    }
-
-    #[inline]
-    #[must_use]
-    fn as_bytes(&self) -> Option<Cow<[u8]>> {
-        let mut value = None;
-        self.provide_value(&mut value);
-        value
-    }
-
-    #[inline]
-    #[must_use]
-    fn as_number(&self) -> Option<isize> {
-        enum NumberBuilder {
-            NotFound,
-            Found(isize),
-            Invalid,
+        let mut request = Request::<RefOption<T>>::new(&mut value);
+        if self.provide_requested(&mut request).was_provided() {
+            return value;
         }
+        let request = Request::new(&mut value as &mut dyn Receiver);
+        self.provide_value(request);
+        value
+    }
 
-        impl NumberBuilder {
+    #[inline]
+    #[must_use]
+    fn as_bool(&self) -> Option<bool>
+    where
+        Self: Sized,
+    {
+        self.as_()
+    }
+
+    #[inline]
+    #[must_use]
+    fn as_u8(&self) -> Option<u8>
+    where
+        Self: Sized,
+    {
+        self.as_()
+    }
+
+    #[inline]
+    #[must_use]
+    fn as_i8(&self) -> Option<i8>
+    where
+        Self: Sized,
+    {
+        self.as_()
+    }
+
+    #[inline]
+    #[must_use]
+    fn as_u16(&self) -> Option<u16>
+    where
+        Self: Sized,
+    {
+        self.as_()
+    }
+
+    #[inline]
+    #[must_use]
+    fn as_i16(&self) -> Option<i16>
+    where
+        Self: Sized,
+    {
+        self.as_()
+    }
+
+    #[inline]
+    #[must_use]
+    fn as_u32(&self) -> Option<u32>
+    where
+        Self: Sized,
+    {
+        self.as_()
+    }
+
+    #[inline]
+    #[must_use]
+    fn as_i32(&self) -> Option<i32>
+    where
+        Self: Sized,
+    {
+        self.as_()
+    }
+
+    #[inline]
+    #[must_use]
+    fn as_u64(&self) -> Option<u64>
+    where
+        Self: Sized,
+    {
+        self.as_()
+    }
+
+    #[inline]
+    #[must_use]
+    fn as_i64(&self) -> Option<i64>
+    where
+        Self: Sized,
+    {
+        self.as_()
+    }
+
+    #[inline]
+    #[must_use]
+    fn as_u128(&self) -> Option<u128>
+    where
+        Self: Sized,
+    {
+        self.as_()
+    }
+
+    #[inline]
+    #[must_use]
+    fn as_i128(&self) -> Option<i128>
+    where
+        Self: Sized,
+    {
+        self.as_()
+    }
+
+    #[inline]
+    #[must_use]
+    fn as_f32(&self) -> Option<f32>
+    where
+        Self: Sized,
+    {
+        self.as_()
+    }
+
+    #[inline]
+    #[must_use]
+    fn as_f64(&self) -> Option<f64>
+    where
+        Self: Sized,
+    {
+        self.as_()
+    }
+
+    #[inline]
+    #[must_use]
+    fn as_str(&self) -> Option<String>
+    where
+        Self: Sized,
+    {
+        self.as_()
+    }
+
+    #[inline]
+    #[must_use]
+    fn as_bytes(&self) -> Option<Vec<u8>>
+    where
+        Self: Sized,
+    {
+        self.as_()
+    }
+
+    #[inline]
+    #[must_use]
+    fn as_number(&self) -> Option<isize>
+    where
+        Self: Sized,
+    {
+        #[derive(Debug, Default)]
+        struct Number(Option<isize>);
+
+        impl Number {
             #[inline]
-            fn try_set(&mut self, val: impl TryInto<isize>) {
-                match (&self, val.try_into()) {
-                    (Self::NotFound, Ok(v)) => *self = Self::Found(v),
-                    (Self::Found(before), Ok(v)) if *before == v => {}
-                    _ => *self = Self::Invalid,
+            fn set(&mut self, val: impl TryInto<isize>) {
+                if let Ok(val) = val.try_into() {
+                    self.0.replace(val);
                 }
             }
         }
 
-        impl crate::value::ValueBuiler<'_> for NumberBuilder {
+        impl crate::rr::Receiver for Number {
             fn bool(&mut self, value: bool) {
-                self.try_set(value);
-            }
-            fn bytes(&mut self, _value: Cow<'_, [u8]>) {
-                *self = Self::Invalid;
+                self.set(value);
             }
             #[allow(clippy::cast_possible_truncation)]
             fn f32(&mut self, value: f32) {
-                self.try_set(value as isize);
+                self.set(value as isize);
             }
             #[allow(clippy::cast_possible_truncation)]
             fn f64(&mut self, value: f64) {
-                self.try_set(value as isize);
+                self.set(value as isize);
             }
             fn i128(&mut self, value: i128) {
-                self.try_set(value);
+                self.set(value);
             }
             fn i16(&mut self, value: i16) {
-                self.try_set(value);
+                self.set(value);
             }
             fn i32(&mut self, value: i32) {
-                self.try_set(value);
+                self.set(value);
             }
             fn i64(&mut self, value: i64) {
-                self.try_set(value);
+                self.set(value);
             }
             fn i8(&mut self, value: i8) {
-                self.try_set(value);
+                self.set(value);
             }
             fn u16(&mut self, value: u16) {
-                self.try_set(value);
+                self.set(value);
             }
             fn u32(&mut self, value: u32) {
-                self.try_set(value);
+                self.set(value);
             }
             fn u64(&mut self, value: u64) {
-                self.try_set(value);
+                self.set(value);
             }
             fn u8(&mut self, value: u8) {
-                self.try_set(value);
+                self.set(value);
             }
             fn u128(&mut self, value: u128) {
-                self.try_set(value);
+                self.set(value);
             }
-            fn str(&mut self, value: Cow<'_, str>) {
-                if let Ok(val) = value.parse::<isize>() {
-                    self.try_set(val);
-                } else {
-                    *self = Self::Invalid;
+            fn char(&mut self, value: char) {
+                if let Some(val) = value.to_digit(10) {
+                    self.set(val);
                 }
             }
+            fn str(&mut self, value: &str) {
+                if let Ok(val) = value.parse::<isize>() {
+                    self.set(val);
+                }
+            }
+            fn str_owned(&mut self, value: String) {
+                if let Ok(val) = value.parse::<isize>() {
+                    self.set(val);
+                }
+            }
+            fn accepts<T: 'static + ?Sized>() -> bool {
+                use core::any::TypeId;
+                let id = TypeId::of::<T>();
+
+                id == TypeId::of::<bool>()
+                    || id == TypeId::of::<f32>()
+                    || id == TypeId::of::<f64>()
+                    || id == TypeId::of::<i128>()
+                    || id == TypeId::of::<i16>()
+                    || id == TypeId::of::<i32>()
+                    || id == TypeId::of::<i64>()
+                    || id == TypeId::of::<i8>()
+                    || id == TypeId::of::<u16>()
+                    || id == TypeId::of::<u32>()
+                    || id == TypeId::of::<u64>()
+                    || id == TypeId::of::<u8>()
+                    || id == TypeId::of::<u128>()
+                    || id == TypeId::of::<char>()
+                    || id == TypeId::of::<&str>()
+                    || id == TypeId::of::<String>()
+            }
         }
 
-        let mut num = NumberBuilder::NotFound;
-        self.provide_value(&mut num);
-
-        match num {
-            NumberBuilder::Found(val) => Some(val),
-            _ => None,
+        impl crate::rr::Req for Number {
+            type Receiver<'d> = &'d mut Number;
         }
+
+        let mut num = Number::default();
+        if !self
+            .provide_requested::<Number>(&mut Request::new(&mut num))
+            .was_provided()
+        {
+            self.provide_value(Request::new(&mut num as &mut dyn Receiver));
+        }
+
+        num.0
     }
 
     #[inline]
@@ -320,6 +382,24 @@ pub trait DataExt: Data {
         };
 
         Ok(self.query::<Option<BoxedData>>(&query)?.is_some())
+    }
+
+    #[inline]
+    #[must_use]
+    fn all_values(&self) -> crate::value::AllValues
+    where
+        Self: Sized,
+    {
+        let mut values = crate::value::AllValues::default();
+        if self
+            .provide_requested::<crate::value::AllValues>(&mut Request::new(&mut values))
+            .was_provided()
+        {
+            return values;
+        }
+        let mut values = crate::value::AllValues::default();
+        self.provide_value(Request::new(&mut values as &mut dyn Receiver));
+        values
     }
 
     #[allow(unused_variables)]
