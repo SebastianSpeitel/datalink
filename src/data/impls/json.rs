@@ -1,24 +1,25 @@
 use serde_json::{Map, Number, Value as Val};
 
-use crate::data::Data;
-use crate::id::ID;
+use crate::data::{Data, Provided};
 use crate::links::{LinkError, Links, LinksExt};
-use crate::value::ValueBuiler;
+use crate::rr::{meta, Req, Request};
 
 impl Data for Val {
     #[inline]
-    fn provide_value<'d>(&'d self, builder: &mut dyn ValueBuiler<'d>) {
+    fn provide_value(&self, mut request: Request) {
+        self.provide_requested(&mut request).debug_assert_provided();
+    }
+
+    #[inline]
+    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
         match self {
-            Val::Null => {}
-            Val::Bool(b) => {
-                builder.bool(*b);
+            Val::Null => request.provide_owned(meta::IsNull),
+            Val::Bool(b) => request.provide_ref(b),
+            Val::Number(n) => n.provide_requested(request).debug_assert_provided(),
+            Val::String(s) => request.provide_str(s),
+            Val::Array(..) | Val::Object(..) => {
+                // Array and object have no value
             }
-            Val::Number(n) => n.provide_value(builder),
-            Val::String(s) => {
-                builder.str(s.into());
-            }
-            Val::Array(_) => {}
-            Val::Object(_) => {}
         }
     }
 
@@ -32,8 +33,9 @@ impl Data for Val {
     }
 
     #[inline]
-    fn get_id(&self) -> Option<ID> {
+    fn get_id(&self) -> Option<crate::id::ID> {
         match self {
+            #[cfg(feature = "well_known")]
             Val::Null => crate::well_known::NONE.get_id(),
             _ => None,
         }
@@ -67,15 +69,45 @@ impl Data for Map<String, Val> {
 
 impl Data for Number {
     #[inline]
-    fn provide_value<'d>(&'d self, builder: &mut dyn ValueBuiler<'d>) {
-        if let Some(n) = self.as_u64() {
-            builder.u64(n);
+    fn provide_value(&self, mut request: Request) {
+        self.provide_requested(&mut request).debug_assert_provided();
+    }
+    #[inline]
+    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
+        if R::requests::<u64>() {
+            if let Some(n) = self.as_u64() {
+                request.provide_u64(n);
+            }
         }
-        if let Some(n) = self.as_i64() {
-            builder.i64(n);
+        if R::requests::<i64>() {
+            if let Some(n) = self.as_i64() {
+                request.provide_i64(n);
+            }
         }
-        if let Some(n) = self.as_f64() {
-            builder.f64(n);
+        if R::requests::<f64>() {
+            if let Some(n) = self.as_f64() {
+                request.provide_f64(n);
+            }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::rr::{Receiver, RefOption};
+
+    #[test]
+    fn number() {
+        let n = Number::from(42);
+        let mut r = None;
+        let req: Request = Request::new(&mut r as &mut dyn Receiver);
+        n.provide_value(req);
+        assert_eq!(r, Some(42u64));
+
+        let mut r = None;
+        n.provide_requested(&mut Request::<RefOption<u64>>::new(&mut r))
+            .assert_provided();
+        assert_eq!(r, Some(42));
     }
 }

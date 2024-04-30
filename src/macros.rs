@@ -52,9 +52,19 @@ macro_rules! impl_data {
         impl $crate::data::Data for $name {
             $(
                 #[inline]
-                fn provide_value<'d>(&'d self, builder: &mut dyn $crate::value::ValueBuiler<'d>) {
+                fn provide_value(&self, mut request: $crate::value::ValueRequest) {
                     $(
-                        $val.provide_value(builder);
+                        request.provide_owned($val);
+                    )+
+                }
+
+                #[inline]
+                fn provide_requested<R: $crate::value::Req>(
+                    &self,
+                    request: &mut $crate::value::ValueRequest<R>,
+                ) -> impl $crate::data::Provided {
+                    $(
+                        request.provide_owned($val);
                     )+
                 }
             )?

@@ -1,11 +1,10 @@
 use std::{
-    borrow::Cow,
     fmt::{self, Debug, Display},
     marker::PhantomData,
 };
 
 use crate::links::{Links, MaybeKeyed, Result, CONTINUE};
-use crate::value::ValueBuiler;
+use crate::rr::Request;
 use crate::{
     data::{BoxedData, Data},
     links::Link,
@@ -42,7 +41,10 @@ pub trait Format {
         Self::fmt_prefix(f, data)?;
 
         if Self::verbosity() <= -1 {
-            let values = crate::value::Value::from_data(data);
+            let mut values = crate::value::AllValues::default();
+            data.provide_value(crate::rr::Request::new(
+                &mut values as &mut dyn crate::rr::Receiver,
+            ));
             let no_links = std::cell::OnceCell::<bool>::new();
 
             let link_check = || {
@@ -61,13 +63,9 @@ pub trait Format {
                 }
             }
 
-            if let Some(val) = values.as_enum() {
+            if let Some(val) = values.single() {
                 if *no_links.get_or_init(link_check) {
-                    if let Some(v) = val {
-                        f.write_fmt(format_args!("{{{v}}}"))?;
-                    } else {
-                        f.write_str("")?;
-                    }
+                    f.write_fmt(format_args!("{{{val}}}"))?;
                     return Ok(());
                 }
             }
@@ -135,7 +133,8 @@ pub trait Format {
         data: &(impl Data + ?Sized),
         state: Self::State,
     ) {
-        data.provide_value(set);
+        let request = Request::new(set as &mut dyn crate::value::ValueReceiver);
+        data.provide_value(request);
     }
 
     #[allow(unused_variables)]
@@ -276,7 +275,8 @@ impl<F: Format> Links for StreamingLinks<'_, '_, '_, F> {
     }
 }
 
-impl ValueBuiler<'_> for fmt::DebugSet<'_, '_> {
+#[warn(clippy::missing_trait_methods)]
+impl crate::rr::Receiver for fmt::DebugSet<'_, '_> {
     #[inline]
     fn bool(&mut self, value: bool) {
         if value {
@@ -333,17 +333,48 @@ impl ValueBuiler<'_> for fmt::DebugSet<'_, '_> {
     fn f64(&mut self, value: f64) {
         self.entry(&format_args!("f64: {value}"));
     }
+
     #[inline]
-    fn str(&mut self, value: Cow<'_, str>) {
-        let value: &str = &value;
+    fn char(&mut self, value: char) {
+        self.entry(&format_args!("char: {value:?}"));
+    }
+
+    #[inline]
+    fn str(&mut self, value: &str) {
         self.entry(&format_args!("str: {value:?}"));
     }
+
     #[inline]
-    fn bytes(&mut self, value: Cow<'_, [u8]>) {
+    fn str_owned(&mut self, value: String) {
+        self.str(&value);
+    }
+
+    #[inline]
+    fn bytes(&mut self, value: &[u8]) {
         match String::from_utf8(value.to_vec()) {
             Ok(s) => self.entry(&format_args!("bytes: b{s:?}")),
             Err(_) => self.entry(&format_args!("bytes: {value:?}")),
         };
+    }
+
+    #[inline]
+    fn bytes_owned(&mut self, value: Vec<u8>) {
+        self.bytes(&value);
+    }
+
+    #[inline]
+    fn other_boxed(&mut self, value: Box<dyn std::any::Any>) {
+        self.entry(&format_args!("other: {value:?}"));
+    }
+
+    #[inline]
+    fn other_ref(&mut self, value: &dyn std::any::Any) {
+        self.entry(&format_args!("other: {value:?}"));
+    }
+
+    #[inline]
+    fn accepts<T: 'static + ?Sized>() -> bool {
+        true
     }
 }
 

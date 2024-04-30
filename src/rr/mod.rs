@@ -1,0 +1,53 @@
+pub mod meta;
+pub mod receiver;
+mod request;
+
+pub use receiver::Receiver;
+pub use request::Request;
+
+pub trait Req: 'static {
+    type Receiver<'d>: Receiver;
+
+    #[inline]
+    #[must_use]
+    fn requests<T: 'static + ?Sized>() -> bool {
+        Self::Receiver::accepts::<T>()
+    }
+}
+
+#[derive(Debug)]
+pub struct Unknown;
+impl Req for Unknown {
+    type Receiver<'d> = &'d mut dyn Receiver;
+}
+
+#[derive(Debug)]
+pub struct RefOption<T>(core::marker::PhantomData<T>);
+impl<T> Req for RefOption<T>
+where
+    T: 'static,
+    for<'a> &'a mut Option<T>: Receiver,
+{
+    type Receiver<'d> = &'d mut Option<T>;
+}
+
+#[derive(Debug)]
+pub struct IgnoreMeta<R: Req>(core::marker::PhantomData<R>);
+impl<R: Req> Req for IgnoreMeta<R> {
+    type Receiver<'d> = R::Receiver<'d>;
+
+    #[inline]
+    fn requests<T: 'static + ?Sized>() -> bool {
+        if meta::is_meta::<T>() {
+            return false;
+        }
+        R::requests::<T>()
+    }
+}
+
+#[macro_export]
+macro_rules! type_eq {
+    ($ty1:ty, $ty2:ty) => {
+        core::any::TypeId::of::<$ty1>() == core::any::TypeId::of::<$ty2>()
+    };
+}
