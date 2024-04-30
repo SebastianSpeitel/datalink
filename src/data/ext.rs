@@ -160,88 +160,118 @@ pub trait DataExt: Data {
         self.as_()
     }
 
-    // #[inline]
-    // #[must_use]
-    // fn as_number(&self) -> Option<isize> {
-    //     enum NumberBuilder {
-    //         NotFound,
-    //         Found(isize),
-    //         Invalid,
-    //     }
+    #[inline]
+    #[must_use]
+    fn as_number(&self) -> Option<isize>
+    where
+        Self: Sized,
+    {
+        #[derive(Debug, Default)]
+        struct Number(Option<isize>);
 
-    //     impl NumberBuilder {
-    //         #[inline]
-    //         fn try_set(&mut self, val: impl TryInto<isize>) {
-    //             match (&self, val.try_into()) {
-    //                 (Self::NotFound, Ok(v)) => *self = Self::Found(v),
-    //                 (Self::Found(before), Ok(v)) if *before == v => {}
-    //                 _ => *self = Self::Invalid,
-    //             }
-    //         }
-    //     }
+        impl Number {
+            #[inline]
+            fn set(&mut self, val: impl TryInto<isize>) {
+                if let Ok(val) = val.try_into() {
+                    self.0.replace(val);
+                }
+            }
+        }
 
-    //     impl crate::value::ValueBuiler<'_> for NumberBuilder {
-    //         fn bool(&mut self, value: bool) {
-    //             self.try_set(value);
-    //         }
-    //         fn bytes(&mut self, _value: Cow<'_, [u8]>) {
-    //             *self = Self::Invalid;
-    //         }
-    //         #[allow(clippy::cast_possible_truncation)]
-    //         fn f32(&mut self, value: f32) {
-    //             self.try_set(value as isize);
-    //         }
-    //         #[allow(clippy::cast_possible_truncation)]
-    //         fn f64(&mut self, value: f64) {
-    //             self.try_set(value as isize);
-    //         }
-    //         fn i128(&mut self, value: i128) {
-    //             self.try_set(value);
-    //         }
-    //         fn i16(&mut self, value: i16) {
-    //             self.try_set(value);
-    //         }
-    //         fn i32(&mut self, value: i32) {
-    //             self.try_set(value);
-    //         }
-    //         fn i64(&mut self, value: i64) {
-    //             self.try_set(value);
-    //         }
-    //         fn i8(&mut self, value: i8) {
-    //             self.try_set(value);
-    //         }
-    //         fn u16(&mut self, value: u16) {
-    //             self.try_set(value);
-    //         }
-    //         fn u32(&mut self, value: u32) {
-    //             self.try_set(value);
-    //         }
-    //         fn u64(&mut self, value: u64) {
-    //             self.try_set(value);
-    //         }
-    //         fn u8(&mut self, value: u8) {
-    //             self.try_set(value);
-    //         }
-    //         fn u128(&mut self, value: u128) {
-    //             self.try_set(value);
-    //         }
-    //         fn str(&mut self, value: Cow<'_, str>) {
-    //             if let Ok(val) = value.parse::<isize>() {
-    //                 self.try_set(val);
-    //             } else {
-    //                 *self = Self::Invalid;
-    //             }
-    //         }
-    //     }
+        impl crate::rr::Receiver for Number {
+            fn bool(&mut self, value: bool) {
+                self.set(value);
+            }
+            #[allow(clippy::cast_possible_truncation)]
+            fn f32(&mut self, value: f32) {
+                self.set(value as isize);
+            }
+            #[allow(clippy::cast_possible_truncation)]
+            fn f64(&mut self, value: f64) {
+                self.set(value as isize);
+            }
+            fn i128(&mut self, value: i128) {
+                self.set(value);
+            }
+            fn i16(&mut self, value: i16) {
+                self.set(value);
+            }
+            fn i32(&mut self, value: i32) {
+                self.set(value);
+            }
+            fn i64(&mut self, value: i64) {
+                self.set(value);
+            }
+            fn i8(&mut self, value: i8) {
+                self.set(value);
+            }
+            fn u16(&mut self, value: u16) {
+                self.set(value);
+            }
+            fn u32(&mut self, value: u32) {
+                self.set(value);
+            }
+            fn u64(&mut self, value: u64) {
+                self.set(value);
+            }
+            fn u8(&mut self, value: u8) {
+                self.set(value);
+            }
+            fn u128(&mut self, value: u128) {
+                self.set(value);
+            }
+            fn char(&mut self, value: char) {
+                if let Some(val) = value.to_digit(10) {
+                    self.set(val);
+                }
+            }
+            fn str(&mut self, value: &str) {
+                if let Ok(val) = value.parse::<isize>() {
+                    self.set(val);
+                }
+            }
+            fn str_owned(&mut self, value: String) {
+                if let Ok(val) = value.parse::<isize>() {
+                    self.set(val);
+                }
+            }
+            fn accepts<T: 'static + ?Sized>() -> bool {
+                use core::any::TypeId;
+                let id = TypeId::of::<T>();
 
-    //     let mut num = NumberBuilder::NotFound;
-    //     self.provide_value(&mut num);
+                id == TypeId::of::<bool>()
+                    || id == TypeId::of::<f32>()
+                    || id == TypeId::of::<f64>()
+                    || id == TypeId::of::<i128>()
+                    || id == TypeId::of::<i16>()
+                    || id == TypeId::of::<i32>()
+                    || id == TypeId::of::<i64>()
+                    || id == TypeId::of::<i8>()
+                    || id == TypeId::of::<u16>()
+                    || id == TypeId::of::<u32>()
+                    || id == TypeId::of::<u64>()
+                    || id == TypeId::of::<u8>()
+                    || id == TypeId::of::<u128>()
+                    || id == TypeId::of::<char>()
+                    || id == TypeId::of::<&str>()
+                    || id == TypeId::of::<String>()
+            }
+        }
 
-    //     match num {
-    //         NumberBuilder::Found(val) => Some(val),
-    //         _ => None,
-    //     }
-    // }
+        impl crate::rr::Req for Number {
+            type Receiver<'d> = &'d mut Number;
+        }
+
+        let mut num = Number::default();
+        if !self
+            .provide_requested::<Number>(&mut Request::new(&mut num))
+            .was_provided()
+        {
+            self.provide_value(Request::new(&mut num as &mut dyn Receiver));
+        }
+
+        num.0
+    }
 
     #[inline]
     fn query<L: Links + Default>(&self, query: &Query) -> Result<L, LinkError> {

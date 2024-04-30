@@ -54,14 +54,14 @@ pub trait Format {
                 link_check.is_none()
             };
 
-            // if Self::verbosity() <= -2 {
-            //     if let Some(num) = super::DataExt::as_number(&values) {
-            //         if *no_links.get_or_init(link_check) {
-            //             f.write_fmt(format_args!("{{{num:?}}}"))?;
-            //             return Ok(());
-            //         }
-            //     }
-            // }
+            if Self::verbosity() <= -2 {
+                if let Some(num) = super::DataExt::as_number(&values) {
+                    if *no_links.get_or_init(link_check) {
+                        f.write_fmt(format_args!("{{{num:?}}}"))?;
+                        return Ok(());
+                    }
+                }
+            }
 
             if let Some(val) = values.single() {
                 if *no_links.get_or_init(link_check) {
