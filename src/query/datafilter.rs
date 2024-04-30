@@ -150,26 +150,41 @@ impl<D: Data + ?Sized> Filter<D> for DataFilter {
                 searcher.0
             }
             E::Text(f) => {
-                // todo: use new rr framework
+                use crate::rr::{Receiver, Req, Request};
+
                 enum Matcher<'a> {
+                    Searching(&'a TextFilter),
                     Found,
-                    Selecting(&'a TextFilter),
                 }
-                impl crate::value::ValueReceiver for Matcher<'_> {
+                impl Receiver for Matcher<'_> {
                     #[inline]
                     fn str(&mut self, value: &str) {
-                        if let Matcher::Selecting(f) = self {
+                        if let Matcher::Searching(f) = self {
                             if f.matches(value) {
                                 *self = Matcher::Found;
                             }
                         }
                     }
+                    #[inline]
+                    fn accepts<T: 'static + ?Sized>() -> bool {
+                        use core::any::TypeId;
+                        TypeId::of::<T>() == TypeId::of::<str>()
+                            || TypeId::of::<T>() == TypeId::of::<String>()
+                    }
+                }
+                impl Req for Matcher<'static> {
+                    type Receiver<'d> = &'d mut Matcher<'d>;
                 }
 
-                let mut m = Matcher::Selecting(f);
-                d.borrow().provide_value(crate::value::ValueRequest::new(
-                    &mut m as &mut dyn crate::value::ValueReceiver,
-                ));
+                let mut m = Matcher::Searching(f);
+
+                // TODO: Optimized path
+                // let mut request = Request::<Matcher>::new(&mut m);
+                // if d.provide_requested(&mut request).was_provided() {
+                //     return matches!(m, Matcher::Found);
+                // }
+
+                d.provide_value(Request::new(&mut m as &mut dyn Receiver));
                 matches!(m, Matcher::Found)
             }
         }
