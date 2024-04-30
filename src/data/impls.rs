@@ -65,73 +65,46 @@ impl_deref!(::std::sync::RwLockWriteGuard<'_, D>);
 impl_deref!(::std::cell::Ref<'_, D>);
 impl_deref!(::std::cell::RefMut<'_, D>);
 
-#[warn(clippy::missing_trait_methods)]
-impl Data for Box<dyn Data> {
-    #[inline]
-    fn provide_value(&self, request: crate::rr::Request) {
-        (**self).provide_value(request);
-    }
-    #[inline]
-    fn provide_requested<R: crate::rr::Req>(
-        &self,
-        _request: &mut crate::rr::Request<R>,
-    ) -> impl Provided {
-        super::internal::DefaultImpl
-    }
-    #[inline]
-    fn provide_links(
-        &self,
-        links: &mut dyn crate::links::Links,
-    ) -> Result<(), crate::links::LinkError> {
-        (**self).provide_links(links)
-    }
-    #[inline]
-    fn query_links(
-        &self,
-        links: &mut dyn crate::links::Links,
-        query: &crate::query::Query,
-    ) -> Result<(), crate::links::LinkError> {
-        (**self).query_links(links, query)
-    }
-    #[inline]
-    fn get_id(&self) -> Option<crate::id::ID> {
-        (**self).get_id()
-    }
+macro_rules! impl_dyn {
+    ($ty:ty) => {
+        impl Data for $ty {
+            #[inline]
+            fn provide_value(&self, request: crate::rr::Request) {
+                (**self).provide_value(request);
+            }
+            #[inline]
+            fn provide_links(
+                &self,
+                links: &mut dyn crate::links::Links,
+            ) -> Result<(), crate::links::LinkError> {
+                (**self).provide_links(links)
+            }
+            #[inline]
+            fn query_links(
+                &self,
+                links: &mut dyn crate::links::Links,
+                query: &crate::query::Query,
+            ) -> Result<(), crate::links::LinkError> {
+                (**self).query_links(links, query)
+            }
+            #[inline]
+            fn get_id(&self) -> Option<crate::id::ID> {
+                (**self).get_id()
+            }
+        }
+    };
 }
 
-#[warn(clippy::missing_trait_methods)]
-impl Data for &dyn Data {
-    #[inline]
-    fn provide_value(&self, request: crate::rr::Request) {
-        (**self).provide_value(request);
-    }
-    #[inline]
-    fn provide_requested<R: crate::rr::Req>(
-        &self,
-        _request: &mut crate::rr::Request<R>,
-    ) -> impl Provided {
-        super::internal::DefaultImpl
-    }
-    #[inline]
-    fn provide_links(
-        &self,
-        links: &mut dyn crate::links::Links,
-    ) -> Result<(), crate::links::LinkError> {
-        (**self).provide_links(links)
-    }
-    #[inline]
-    fn query_links(
-        &self,
-        links: &mut dyn crate::links::Links,
-        query: &crate::query::Query,
-    ) -> Result<(), crate::links::LinkError> {
-        (**self).query_links(links, query)
-    }
-    #[inline]
-    fn get_id(&self) -> Option<crate::id::ID> {
-        (**self).get_id()
-    }
-}
+impl_dyn!(&dyn Data);
+impl_dyn!(&mut dyn Data);
+impl_dyn!(Box<dyn Data>);
+impl_dyn!(::std::sync::Arc<dyn Data>);
+impl_dyn!(::std::rc::Rc<dyn Data>);
+impl_dyn!(::std::sync::MutexGuard<'_, dyn Data>);
+impl_dyn!(::std::sync::RwLockReadGuard<'_, dyn Data>);
+impl_dyn!(::std::sync::RwLockWriteGuard<'_, dyn Data>);
+impl_dyn!(::std::cell::Ref<'_, dyn Data>);
+impl_dyn!(::std::cell::RefMut<'_, dyn Data>);
 
 #[cfg(test)]
 mod tests {
