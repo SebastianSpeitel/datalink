@@ -96,12 +96,7 @@ where
     where
         Self: Sized,
     {
-        let data = &self.0;
-        if (&data).provide_requested(request).was_provided() {
-            true
-        } else {
-            false
-        }
+        (&self.0).provide_requested(request).was_provided()
     }
 
     #[inline]
