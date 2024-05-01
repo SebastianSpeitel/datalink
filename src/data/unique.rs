@@ -96,7 +96,7 @@ impl<D: Data + ?Sized, T: Borrow<D>> Data for Fixed<D, T> {
     where
         Self: Sized,
     {
-        super::internal::DefaultImpl
+        crate::rr::provided::DefaultImpl
     }
     #[inline]
     fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {

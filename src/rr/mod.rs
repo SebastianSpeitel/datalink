@@ -1,9 +1,17 @@
 pub mod meta;
+pub mod provided;
 pub mod receiver;
-mod request;
+pub mod request;
 
 pub use receiver::Receiver;
 pub use request::Request;
+
+pub mod prelude {
+    pub use super::provided::Provided;
+    pub use super::receiver::Receiver;
+    pub use super::request::Request;
+    pub use super::Req;
+}
 
 pub trait Req: 'static {
     type Receiver<'d>: Receiver;
