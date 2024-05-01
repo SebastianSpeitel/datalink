@@ -221,9 +221,9 @@ impl<D: Data> Data for Option<D> {
 }
 
 #[warn(clippy::missing_trait_methods)]
-impl<D: ?Sized> Data for std::borrow::Cow<'_, D>
+impl<'a, D: ?Sized> Data for std::borrow::Cow<'a, D>
 where
-    for<'a> &'a D: Data,
+    &'a D: Data,
     D: ToOwned,
     D::Owned: Data,
 {
