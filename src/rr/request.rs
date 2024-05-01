@@ -12,15 +12,6 @@ unsafe fn downcast_ref_unchecked<T: Any>(any: &dyn Any) -> &T {
     any.downcast_ref::<T>().unwrap_unchecked()
 }
 
-/// # Safety
-///
-/// The caller must ensure that the type of `value` is `T`.
-// #[inline(always)]
-// unsafe fn downcast_unchecked<T: Any>(any: Box<dyn Any>) -> Box<T> {
-//     debug_assert_eq!(any.type_id(), core::any::TypeId::of::<T>());
-//     any.downcast::<T>().unwrap_unchecked()
-// }
-
 macro_rules! provide_typed {
     ($rec:expr, $ty1:ty, $ty2:ty, $method:ident, $val:expr) => {
         if type_eq!($ty1, $ty2) {
