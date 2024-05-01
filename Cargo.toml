@@ -18,5 +18,5 @@ rand = { version = "0.8", optional = true }
 serde_json = { version = "1.0", optional = true }
 thiserror = "1.0"
 toml = { version = "0.8", optional = true }
-datalink_derive = { git = "https://github.com/SebastianSpeitel/datalink_derive", optional = true }
+datalink_derive = { git = "https://github.com/SebastianSpeitel/datalink_derive", rev = "bb1e176", optional = true}
 filters = { git = "https://github.com/SebastianSpeitel/filters" }
