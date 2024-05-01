@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use crate::{
     links::{LinkError, Links, LinksExt},
-    value::{Req, ValueRequest},
+    value::{Provided, Req, ValueRequest},
 };
 
 #[cfg(feature = "unique")]
@@ -67,7 +67,7 @@ pub trait Data {
     where
         Self: Sized,
     {
-        internal::DefaultImpl
+        crate::rr::provided::DefaultImpl
     }
 }
 
@@ -104,44 +104,6 @@ impl Debug for dyn Data + Sync + Send {
     #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.format::<format::DEBUG>().fmt(f)
-    }
-}
-
-mod internal {
-    pub(super) struct DefaultImpl;
-    impl super::Provided for DefaultImpl {
-        #[inline]
-        fn was_provided(&self) -> bool {
-            false
-        }
-    }
-}
-
-pub trait Provided {
-    #[inline]
-    fn was_provided(&self) -> bool {
-        true
-    }
-
-    #[inline]
-    #[track_caller]
-    fn assert_provided(&self) {
-        assert!(self.was_provided());
-    }
-
-    #[inline]
-    #[track_caller]
-    fn debug_assert_provided(&self) {
-        debug_assert!(self.was_provided());
-    }
-}
-
-impl Provided for () {}
-
-impl Provided for bool {
-    #[inline]
-    fn was_provided(&self) -> bool {
-        *self
     }
 }
 

@@ -1,6 +1,6 @@
-use crate::data::{Data, Provided};
+use crate::data::Data;
 use crate::links::{LinkError, Links};
-use crate::rr::{meta, Req, Request};
+use crate::rr::{meta, prelude::*};
 
 impl Data for () {
     #[inline]

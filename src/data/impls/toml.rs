@@ -1,8 +1,8 @@
 use ::toml::{Table, Value as Val};
 
-use crate::data::{Data, Provided};
+use crate::data::Data;
 use crate::links::{LinkError, Links, LinksExt};
-use crate::rr::{Req, Request};
+use crate::rr::prelude::{Provided, Req, Request};
 
 impl Data for Val {
     #[inline]
