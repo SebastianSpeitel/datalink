@@ -43,6 +43,7 @@ macro_rules! impl_deref {
                 (**self).get_id()
             }
         }
+
         #[cfg(feature = "unique")]
         impl<D: $crate::data::unique::Unique + ?Sized> $crate::data::unique::Unique for $ty {
             #[inline]
@@ -54,6 +55,7 @@ macro_rules! impl_deref {
 }
 
 impl_deref!(&D);
+impl_deref!(&mut D);
 impl_deref!(Box<D>);
 impl_deref!(::std::sync::Arc<D>);
 impl_deref!(::std::rc::Rc<D>);
@@ -93,16 +95,25 @@ macro_rules! impl_dyn {
     };
 }
 
-impl_dyn!(&dyn Data);
-impl_dyn!(&mut dyn Data);
-impl_dyn!(Box<dyn Data>);
-impl_dyn!(::std::sync::Arc<dyn Data>);
-impl_dyn!(::std::rc::Rc<dyn Data>);
-impl_dyn!(::std::sync::MutexGuard<'_, dyn Data>);
-impl_dyn!(::std::sync::RwLockReadGuard<'_, dyn Data>);
-impl_dyn!(::std::sync::RwLockWriteGuard<'_, dyn Data>);
-impl_dyn!(::std::cell::Ref<'_, dyn Data>);
-impl_dyn!(::std::cell::RefMut<'_, dyn Data>);
+macro_rules! impl_all_dyn {
+    ($ty:ty) => {
+        impl_dyn!(&$ty);
+        impl_dyn!(&mut $ty);
+        impl_dyn!(Box<$ty>);
+        impl_dyn!(::std::sync::Arc<$ty>);
+        impl_dyn!(::std::rc::Rc<$ty>);
+        impl_dyn!(::std::sync::MutexGuard<'_, $ty>);
+        impl_dyn!(::std::sync::RwLockReadGuard<'_, $ty>);
+        impl_dyn!(::std::sync::RwLockWriteGuard<'_, $ty>);
+        impl_dyn!(::std::cell::Ref<'_, $ty>);
+        impl_dyn!(::std::cell::RefMut<'_, $ty>);
+    };
+}
+
+impl_all_dyn!(dyn Data);
+impl_all_dyn!((dyn Data + Send));
+impl_all_dyn!((dyn Data + Sync));
+impl_all_dyn!((dyn Data + Send + Sync));
 
 #[cfg(test)]
 mod tests {
