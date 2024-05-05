@@ -420,6 +420,17 @@ pub trait DataExt: Data {
         values
     }
 
+    #[inline]
+    #[must_use]
+    fn has_links(&self) -> Result<bool, LinkError> {
+        use crate::links::impls::Linked;
+        const FIRST: Query = Query::new(crate::query::LinkFilter::Any)
+            .with_limit(1)
+            .build_unoptimized();
+        let linked = self.query::<Linked>(&FIRST)?;
+        Ok(linked == Linked::Yes)
+    }
+
     #[allow(unused_variables)]
     #[inline]
     #[must_use]
