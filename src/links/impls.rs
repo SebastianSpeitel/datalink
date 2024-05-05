@@ -9,6 +9,33 @@ use super::{Links, MaybeKeyed, Result, BREAK, CONTINUE};
 use crate::data::unique::{Fixed, MaybeUnique};
 use crate::data::BoxedData;
 
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Linked {
+    #[default]
+    No,
+    Yes,
+}
+
+impl Links for Linked {
+    #[inline]
+    fn push(&mut self, _target: BoxedData, _key: Option<BoxedData>) -> Result {
+        *self = Linked::Yes;
+        BREAK
+    }
+
+    #[inline]
+    fn push_unkeyed(&mut self, _target: BoxedData) -> Result {
+        *self = Linked::Yes;
+        BREAK
+    }
+
+    #[inline]
+    fn push_keyed(&mut self, _target: BoxedData, _key: BoxedData) -> Result {
+        *self = Linked::Yes;
+        BREAK
+    }
+}
+
 impl Links for Vec<MaybeKeyed<BoxedData, BoxedData>> {
     #[inline]
     fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result {
