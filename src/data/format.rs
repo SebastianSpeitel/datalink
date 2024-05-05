@@ -10,6 +10,8 @@ use crate::{
     links::Link,
 };
 
+use super::DataExt;
+
 #[derive(Default, Debug)]
 pub struct FORMAT<const SERIAL: bool = false, const MAX_DEPTH: u16 = 6, const VERBOSITY: i8 = 0>;
 
@@ -17,11 +19,50 @@ pub type COMPACT<const MAX_DEPTH: u16 = 6, const VERBOSITY: i8 = -1> =
     FORMAT<true, MAX_DEPTH, VERBOSITY>;
 pub type DEBUG = FORMAT<true, 6, 1>;
 
+pub trait Verbosity {
+    #[inline]
+    fn compact_prefix(&self) -> bool {
+        false
+    }
+    #[inline]
+    fn collapse_linkless(&self) -> bool {
+        false
+    }
+    #[inline]
+    fn dedup_number_values(&self) -> bool {
+        false
+    }
+    #[inline]
+    fn show_id(&self) -> bool {
+        false
+    }
+}
+
+impl Verbosity for i8 {
+    #[inline]
+    fn compact_prefix(&self) -> bool {
+        *self <= -1
+    }
+    #[inline]
+    fn collapse_linkless(&self) -> bool {
+        *self <= -1
+    }
+    #[inline]
+    fn dedup_number_values(&self) -> bool {
+        *self <= -2
+    }
+    #[inline]
+    fn show_id(&self) -> bool {
+        *self >= 1
+    }
+}
+
 pub trait Format {
     type State: Default + Copy;
 
     #[inline]
-    fn verbosity() -> i8 {
+    #[must_use]
+    fn verbosity() -> impl Verbosity {
         0
     }
 
@@ -40,32 +81,39 @@ pub trait Format {
         // Format prefix
         Self::fmt_prefix(f, data)?;
 
-        if Self::verbosity() <= -1 {
+        let is_linkless = || !data.has_links().unwrap_or(true);
+
+        if Self::verbosity().collapse_linkless() && is_linkless() {
             let mut values = crate::value::AllValues::default();
             data.provide_value(crate::rr::Request::new(
                 &mut values as &mut dyn crate::rr::Receiver,
             ));
-            let no_links = std::cell::OnceCell::<bool>::new();
 
-            let link_check = || {
-                let mut link_check = None::<BoxedData>;
-                // Ignore errors
-                let _ = data.provide_links(&mut link_check);
-                link_check.is_none()
-            };
-
-            if Self::verbosity() <= -2 {
-                if let Some(num) = super::DataExt::as_number(&values) {
-                    if *no_links.get_or_init(link_check) {
-                        f.write_fmt(format_args!("{{{num:?}}}"))?;
-                        return Ok(());
-                    }
-                }
+            if values.len() == 0 {
+                f.write_str("{}")?;
+                return Ok(());
             }
 
             if let Some(val) = values.single() {
-                if *no_links.get_or_init(link_check) {
-                    f.write_fmt(format_args!("{{{val}}}"))?;
+                f.write_fmt(format_args!("{{{val}}}"))?;
+                return Ok(());
+            }
+
+            if Self::verbosity().dedup_number_values() {
+                let num = values
+                    .into_iter()
+                    .try_fold(None, |num, val| match (num, val.as_number()) {
+                        // First number value
+                        (None, Some(n)) => Some(Some(n)),
+                        // Same number value
+                        (Some(n), Some(m)) if n == m => Some(Some(n)),
+                        // Different or not a number
+                        _ => None,
+                    })
+                    .flatten();
+
+                if let Some(num) = num {
+                    f.write_fmt(format_args!("{{{num}}}"))?;
                     return Ok(());
                 }
             }
@@ -89,14 +137,14 @@ pub trait Format {
 
     #[inline]
     fn fmt_prefix(f: &mut fmt::Formatter<'_>, data: &(impl Data + ?Sized)) -> fmt::Result {
-        if Self::verbosity() <= -2 {
+        if Self::verbosity().compact_prefix() {
             f.write_str("D")?;
         } else {
             f.write_str("Data")?;
         }
 
         #[cfg(feature = "unique")]
-        if Self::verbosity() > 0 {
+        if Self::verbosity().show_id() {
             if let Some(id) = data.get_id() {
                 f.write_fmt(format_args!("[{id}]"))?;
             }
@@ -154,7 +202,7 @@ impl<const SERIAL: bool, const MAX_DEPTH: u16, const VERBOSITY: i8> Format
     type State = u16;
 
     #[inline]
-    fn verbosity() -> i8 {
+    fn verbosity() -> impl Verbosity {
         VERBOSITY
     }
 
