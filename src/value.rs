@@ -26,6 +26,27 @@ pub enum Value {
     Other(Box<dyn Any>),
 }
 
+impl Value {
+    #[inline]
+    pub fn as_number(&self) -> Option<isize> {
+        match self {
+            Value::U8(v) => (*v).try_into().ok(),
+            Value::I8(v) => (*v).try_into().ok(),
+            Value::U16(v) => (*v).try_into().ok(),
+            Value::I16(v) => (*v).try_into().ok(),
+            Value::U32(v) => (*v).try_into().ok(),
+            Value::I32(v) => (*v).try_into().ok(),
+            Value::U64(v) => (*v).try_into().ok(),
+            Value::I64(v) => (*v).try_into().ok(),
+            Value::U128(v) => (*v).try_into().ok(),
+            Value::I128(v) => (*v).try_into().ok(),
+            Value::F32(v) => (*v as isize).try_into().ok(),
+            Value::F64(v) => (*v as isize).try_into().ok(),
+            _ => None,
+        }
+    }
+}
+
 impl ValueReceiver for Value {
     #[inline]
     fn bool(&mut self, value: bool) {
