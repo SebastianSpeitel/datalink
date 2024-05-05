@@ -36,6 +36,10 @@ pub trait Verbosity {
     fn show_id(&self) -> bool {
         false
     }
+    #[inline]
+    fn ellipsis_threshold(&self) -> Option<core::num::NonZeroUsize> {
+        1024.try_into().ok()
+    }
 }
 
 impl Verbosity for i8 {
@@ -54,6 +58,14 @@ impl Verbosity for i8 {
     #[inline]
     fn show_id(&self) -> bool {
         *self >= 1
+    }
+    #[inline]
+    fn ellipsis_threshold(&self) -> Option<core::num::NonZeroUsize> {
+        match *self {
+            1.. => None,
+            0 => 1024.try_into().ok(),
+            ..=-1 => 25.try_into().ok(),
+        }
     }
 }
 
@@ -95,7 +107,16 @@ pub trait Format {
             }
 
             if let Some(val) = values.single() {
-                f.write_fmt(format_args!("{{{val}}}"))?;
+                if let Some(t) = Self::verbosity().ellipsis_threshold() {
+                    let formatted = val.to_string();
+                    if formatted.len() > t.get() {
+                        write!(f, "{{{}…}}", &formatted[..t.get()])?;
+                    } else {
+                        write!(f, "{{{formatted}}}")?;
+                    }
+                } else {
+                    write!(f, "{{{val}}}")?;
+                }
                 return Ok(());
             }
 
