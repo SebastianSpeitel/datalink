@@ -329,3 +329,13 @@ impl core::ops::Deref for AllValues {
         &self.0
     }
 }
+
+impl IntoIterator for AllValues {
+    type Item = Value;
+    type IntoIter = std::vec::IntoIter<Value>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
