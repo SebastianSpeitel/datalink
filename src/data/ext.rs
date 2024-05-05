@@ -179,62 +179,79 @@ pub trait DataExt: Data {
         }
 
         impl crate::rr::Receiver for Number {
+            #[inline]
             fn bool(&mut self, value: bool) {
                 self.set(value);
             }
+            #[inline]
             #[allow(clippy::cast_possible_truncation)]
             fn f32(&mut self, value: f32) {
                 self.set(value as isize);
             }
+            #[inline]
             #[allow(clippy::cast_possible_truncation)]
             fn f64(&mut self, value: f64) {
                 self.set(value as isize);
             }
+            #[inline]
             fn i128(&mut self, value: i128) {
                 self.set(value);
             }
+            #[inline]
             fn i16(&mut self, value: i16) {
                 self.set(value);
             }
+            #[inline]
             fn i32(&mut self, value: i32) {
                 self.set(value);
             }
+            #[inline]
             fn i64(&mut self, value: i64) {
                 self.set(value);
             }
+            #[inline]
             fn i8(&mut self, value: i8) {
                 self.set(value);
             }
+            #[inline]
             fn u16(&mut self, value: u16) {
                 self.set(value);
             }
+            #[inline]
             fn u32(&mut self, value: u32) {
                 self.set(value);
             }
+            #[inline]
             fn u64(&mut self, value: u64) {
                 self.set(value);
             }
+            #[inline]
             fn u8(&mut self, value: u8) {
                 self.set(value);
             }
+            #[inline]
             fn u128(&mut self, value: u128) {
                 self.set(value);
             }
+            #[inline]
             fn char(&mut self, value: char) {
                 if let Some(val) = value.to_digit(10) {
                     self.set(val);
                 }
             }
+            #[inline]
             fn str(&mut self, value: &str) {
                 if let Ok(val) = value.parse::<isize>() {
                     self.set(val);
                 }
             }
+            #[inline]
             fn str_owned(&mut self, value: String) {
                 if let Ok(val) = value.parse::<isize>() {
                     self.set(val);
                 }
             }
+            #[inline]
             fn accepts<T: 'static + ?Sized>() -> bool {
                 use core::any::TypeId;
                 let id = TypeId::of::<T>();
@@ -374,6 +391,7 @@ pub trait DataExt: Data {
     }
 
     #[cfg(all(feature = "well_known", feature = "unique"))]
+    #[inline]
     fn is_tagged_with(&self, tag: &impl crate::data::unique::Unique) -> Result<bool, LinkError> {
         let query = {
             use crate::query::prelude::*;
