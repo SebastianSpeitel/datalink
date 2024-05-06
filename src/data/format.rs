@@ -44,6 +44,10 @@ pub trait Verbosity {
     fn show_meta_values(&self) -> bool {
         false
     }
+    #[inline]
+    fn show_unknown_values(&self) -> bool {
+        false
+    }
 }
 
 impl Verbosity for i8 {
@@ -74,6 +78,10 @@ impl Verbosity for i8 {
     #[inline]
     fn show_meta_values(&self) -> bool {
         *self >= 0
+    }
+    #[inline]
+    fn show_unknown_values(&self) -> bool {
+        *self >= 1
     }
 }
 
@@ -450,27 +458,34 @@ impl<F: Format + ?Sized> Receiver for DebugReceiver<'_, '_, '_, F> {
     fn other_ref(&mut self, value: &dyn std::any::Any) {
         use crate::rr::meta;
         use core::any::TypeId;
-        if F::verbosity().show_meta_values() {
-            let id = value.type_id();
-            if id == TypeId::of::<meta::IsSome>() {
-                self.set.entry(&format_args!("#IsSome"));
-                return;
-            } else if id == TypeId::of::<meta::IsNone>() {
-                self.set.entry(&format_args!("#IsNone"));
-            } else if id == TypeId::of::<meta::IsBorrowed>() {
-                self.set.entry(&format_args!("#IsBorrowed"));
-            } else if id == TypeId::of::<meta::IsOwned>() {
-                self.set.entry(&format_args!("#IsOwned"));
-            } else if id == TypeId::of::<meta::IsNull>() {
-                self.set.entry(&format_args!("#IsNull"));
-            } else if id == TypeId::of::<meta::IsUnit>() {
-                self.set.entry(&format_args!("#IsUnit"));
-            } else {
-                self.set.entry(&format_args!("{{unknown}}"));
-            }
+        let verbosity = F::verbosity();
+        if !verbosity.show_unknown_values() && !verbosity.show_meta_values() {
             return;
         }
-        self.set.entry(&format_args!("{{unknown}}"));
+        if F::verbosity().show_meta_values() {
+            let mut meta_entry = None;
+            let id = value.type_id();
+            if id == TypeId::of::<meta::IsSome>() {
+                meta_entry.replace("#IsSome");
+            } else if id == TypeId::of::<meta::IsNone>() {
+                meta_entry.replace("#IsNone");
+            } else if id == TypeId::of::<meta::IsBorrowed>() {
+                meta_entry.replace("#IsBorrowed");
+            } else if id == TypeId::of::<meta::IsOwned>() {
+                meta_entry.replace("#IsOwned");
+            } else if id == TypeId::of::<meta::IsNull>() {
+                meta_entry.replace("#IsNull");
+            } else if id == TypeId::of::<meta::IsUnit>() {
+                meta_entry.replace("#IsUnit");
+            }
+
+            if let Some(meta_entry) = meta_entry {
+                self.set.entry(&format_args!("{meta_entry}"));
+                return;
+            }
+        }
+
+        self.set.entry(&"{{unknown}}");
     }
 
     #[inline]
