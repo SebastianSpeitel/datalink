@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::links::{Links, MaybeKeyed, Result, CONTINUE};
-use crate::rr::Request;
+use crate::rr::{Receiver, Request};
 use crate::{
     data::{BoxedData, Data},
     links::Link,
@@ -40,6 +40,10 @@ pub trait Verbosity {
     fn ellipsis_threshold(&self) -> Option<core::num::NonZeroUsize> {
         1024.try_into().ok()
     }
+    #[inline]
+    fn show_meta_values(&self) -> bool {
+        false
+    }
 }
 
 impl Verbosity for i8 {
@@ -66,6 +70,10 @@ impl Verbosity for i8 {
             0 => 1024.try_into().ok(),
             ..=-1 => 25.try_into().ok(),
         }
+    }
+    #[inline]
+    fn show_meta_values(&self) -> bool {
+        *self >= 0
     }
 }
 
@@ -202,7 +210,9 @@ pub trait Format {
         data: &(impl Data + ?Sized),
         state: Self::State,
     ) {
-        let request = Request::new(set as &mut dyn crate::value::ValueReceiver);
+        let mut receiver = DebugReceiver::<Self> { set, state };
+
+        let request = Request::new(&mut receiver as &mut dyn Receiver);
         data.provide_value(request);
     }
 
@@ -344,73 +354,78 @@ impl<F: Format> Links for StreamingLinks<'_, '_, '_, F> {
     }
 }
 
+struct DebugReceiver<'a, 'b, 'c, F: Format + ?Sized> {
+    set: &'a mut fmt::DebugSet<'b, 'c>,
+    state: F::State,
+}
+
 #[warn(clippy::missing_trait_methods)]
-impl crate::rr::Receiver for fmt::DebugSet<'_, '_> {
+impl<F: Format + ?Sized> Receiver for DebugReceiver<'_, '_, '_, F> {
     #[inline]
     fn bool(&mut self, value: bool) {
         if value {
-            self.entry(&format_args!("bool: true"));
+            self.set.entry(&format_args!("bool: true"));
         } else {
-            self.entry(&format_args!("bool: false"));
+            self.set.entry(&format_args!("bool: false"));
         }
     }
     #[inline]
     fn u8(&mut self, value: u8) {
-        self.entry(&format_args!("u8: {value}"));
+        self.set.entry(&format_args!("u8: {value}"));
     }
     #[inline]
     fn i8(&mut self, value: i8) {
-        self.entry(&format_args!("i8: {value}"));
+        self.set.entry(&format_args!("i8: {value}"));
     }
     #[inline]
     fn u16(&mut self, value: u16) {
-        self.entry(&format_args!("u16: {value}"));
+        self.set.entry(&format_args!("u16: {value}"));
     }
     #[inline]
     fn i16(&mut self, value: i16) {
-        self.entry(&format_args!("i16: {value}"));
+        self.set.entry(&format_args!("i16: {value}"));
     }
     #[inline]
     fn u32(&mut self, value: u32) {
-        self.entry(&format_args!("u32: {value}"));
+        self.set.entry(&format_args!("u32: {value}"));
     }
     #[inline]
     fn i32(&mut self, value: i32) {
-        self.entry(&format_args!("i32: {value}"));
+        self.set.entry(&format_args!("i32: {value}"));
     }
     #[inline]
     fn u64(&mut self, value: u64) {
-        self.entry(&format_args!("u64: {value}"));
+        self.set.entry(&format_args!("u64: {value}"));
     }
     #[inline]
     fn i64(&mut self, value: i64) {
-        self.entry(&format_args!("i64: {value}"));
+        self.set.entry(&format_args!("i64: {value}"));
     }
     #[inline]
     fn u128(&mut self, value: u128) {
-        self.entry(&format_args!("u128: {value}"));
+        self.set.entry(&format_args!("u128: {value}"));
     }
     #[inline]
     fn i128(&mut self, value: i128) {
-        self.entry(&format_args!("i128: {value}"));
+        self.set.entry(&format_args!("i128: {value}"));
     }
     #[inline]
     fn f32(&mut self, value: f32) {
-        self.entry(&format_args!("f32: {value}"));
+        self.set.entry(&format_args!("f32: {value}"));
     }
     #[inline]
     fn f64(&mut self, value: f64) {
-        self.entry(&format_args!("f64: {value}"));
+        self.set.entry(&format_args!("f64: {value}"));
     }
 
     #[inline]
     fn char(&mut self, value: char) {
-        self.entry(&format_args!("char: {value:?}"));
+        self.set.entry(&format_args!("char: {value:?}"));
     }
 
     #[inline]
     fn str(&mut self, value: &str) {
-        self.entry(&format_args!("str: {value:?}"));
+        self.set.entry(&format_args!("str: {value:?}"));
     }
 
     #[inline]
@@ -421,8 +436,8 @@ impl crate::rr::Receiver for fmt::DebugSet<'_, '_> {
     #[inline]
     fn bytes(&mut self, value: &[u8]) {
         match String::from_utf8(value.to_vec()) {
-            Ok(s) => self.entry(&format_args!("bytes: b{s:?}")),
-            Err(_) => self.entry(&format_args!("bytes: {value:?}")),
+            Ok(s) => self.set.entry(&format_args!("bytes: b{s:?}")),
+            Err(_) => self.set.entry(&format_args!("bytes: {value:?}")),
         };
     }
 
@@ -432,13 +447,35 @@ impl crate::rr::Receiver for fmt::DebugSet<'_, '_> {
     }
 
     #[inline]
-    fn other_boxed(&mut self, value: Box<dyn std::any::Any>) {
-        self.entry(&format_args!("other: {value:?}"));
+    fn other_ref(&mut self, value: &dyn std::any::Any) {
+        use crate::rr::meta;
+        use core::any::TypeId;
+        if F::verbosity().show_meta_values() {
+            let id = value.type_id();
+            if id == TypeId::of::<meta::IsSome>() {
+                self.set.entry(&format_args!("#IsSome"));
+                return;
+            } else if id == TypeId::of::<meta::IsNone>() {
+                self.set.entry(&format_args!("#IsNone"));
+            } else if id == TypeId::of::<meta::IsBorrowed>() {
+                self.set.entry(&format_args!("#IsBorrowed"));
+            } else if id == TypeId::of::<meta::IsOwned>() {
+                self.set.entry(&format_args!("#IsOwned"));
+            } else if id == TypeId::of::<meta::IsNull>() {
+                self.set.entry(&format_args!("#IsNull"));
+            } else if id == TypeId::of::<meta::IsUnit>() {
+                self.set.entry(&format_args!("#IsUnit"));
+            } else {
+                self.set.entry(&format_args!("{{unknown}}"));
+            }
+            return;
+        }
+        self.set.entry(&format_args!("{{unknown}}"));
     }
 
     #[inline]
-    fn other_ref(&mut self, value: &dyn std::any::Any) {
-        self.entry(&format_args!("other: {value:?}"));
+    fn other_boxed(&mut self, value: Box<dyn std::any::Any>) {
+        self.other_ref(&*value);
     }
 
     #[inline]
