@@ -351,6 +351,13 @@ impl core::ops::Deref for AllValues {
     }
 }
 
+impl core::ops::DerefMut for AllValues {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 impl IntoIterator for AllValues {
     type Item = Value;
     type IntoIter = std::vec::IntoIter<Value>;
