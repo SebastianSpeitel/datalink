@@ -139,6 +139,10 @@ pub trait Format {
                 return Ok(());
             }
 
+            if !Self::verbosity().show_unknown_values() {
+                values.retain(|v| !matches!(v, crate::value::Value::Other(..)));
+            }
+
             if let Some(val) = values.single() {
                 match val {
                     Value::String(s) => {
