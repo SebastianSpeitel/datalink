@@ -1,13 +1,16 @@
 use std::{
-    fmt::{self, Debug, Display},
+    fmt::{self, Debug, Display, Write},
     marker::PhantomData,
 };
 
-use crate::links::{Links, MaybeKeyed, Result, CONTINUE};
 use crate::rr::{Receiver, Request};
 use crate::{
     data::{BoxedData, Data},
     links::Link,
+};
+use crate::{
+    links::{Links, MaybeKeyed, Result, CONTINUE},
+    rr::meta,
 };
 
 use super::DataExt;
@@ -106,41 +109,50 @@ pub trait Format {
         data: &(impl Data + ?Sized),
         state: Self::State,
     ) -> fmt::Result {
+        let verbosity = Self::verbosity();
+
         // Format prefix
         Self::fmt_prefix(f, data)?;
 
         let is_linkless = || !data.has_links().unwrap_or(true);
 
-        if Self::verbosity().collapse_linkless() && is_linkless() {
-            let mut values = crate::value::AllValues::default();
-            data.provide_value(crate::rr::Request::new(
-                &mut values as &mut dyn crate::rr::Receiver,
-            ));
+        if verbosity.collapse_linkless() && is_linkless() {
+            use crate::value::{AllValues, Value};
+            let mut values = AllValues::default();
+            data.provide_value(Request::new(&mut values as &mut dyn Receiver));
+            if values.len() == 0 {
+                f.write_str("{}")?;
+                return Ok(());
+            }
+
+            if !verbosity.show_unknown_values() {
+                values.retain(|v| match v {
+                    Value::Other(v) => {
+                        verbosity.show_meta_values() && meta::MetaInfo::about_val(v).is_some()
+                    }
+                    _ => true,
+                });
+            }
 
             if values.len() == 0 {
                 f.write_str("{}")?;
                 return Ok(());
             }
 
-            if !Self::verbosity().show_unknown_values() {
-                values.retain(|v| !matches!(v, crate::value::Value::Other(..)));
-            }
-
             if let Some(val) = values.single() {
-                if let Some(t) = Self::verbosity().ellipsis_threshold() {
-                    let formatted = val.to_string();
-                    if formatted.len() > t.get() {
-                        write!(f, "{{{}…}}", &formatted[..t.get()])?;
-                    } else {
-                        write!(f, "{{{formatted}}}")?;
+                match val {
+                    Value::String(s) => {
+                        write!(f, "{{\"{}\"}}", s.escape_debug().ellipse::<Self>())?
                     }
-                } else {
-                    write!(f, "{{{val}}}")?;
+                    Value::Bytes(b) => {
+                        write!(f, "{{b\"{}\"}}", b.escape_ascii().ellipse::<Self>())?;
+                    }
+                    v => write!(f, "{{{:?}}}", v)?,
                 }
                 return Ok(());
             }
 
-            if Self::verbosity().dedup_number_values() {
+            if verbosity.dedup_number_values() {
                 let num = values
                     .into_iter()
                     .try_fold(None, |num, val| match (num, val.as_number()) {
@@ -437,7 +449,10 @@ impl<F: Format + ?Sized> Receiver for DebugReceiver<'_, '_, '_, F> {
 
     #[inline]
     fn str(&mut self, value: &str) {
-        self.set.entry(&format_args!("str: {value:?}"));
+        self.set.entry(&format_args!(
+            "str: \"{}\"",
+            value.escape_default().ellipse::<F>()
+        ));
     }
 
     #[inline]
@@ -447,10 +462,10 @@ impl<F: Format + ?Sized> Receiver for DebugReceiver<'_, '_, '_, F> {
 
     #[inline]
     fn bytes(&mut self, value: &[u8]) {
-        match String::from_utf8(value.to_vec()) {
-            Ok(s) => self.set.entry(&format_args!("bytes: b{s:?}")),
-            Err(_) => self.set.entry(&format_args!("bytes: {value:?}")),
-        };
+        self.set.entry(&format_args!(
+            "bytes: b\"{}\"",
+            value.escape_ascii().ellipse::<F>()
+        ));
     }
 
     #[inline]
@@ -460,31 +475,13 @@ impl<F: Format + ?Sized> Receiver for DebugReceiver<'_, '_, '_, F> {
 
     #[inline]
     fn other_ref(&mut self, value: &dyn std::any::Any) {
-        use crate::rr::meta;
-        use core::any::TypeId;
         let verbosity = F::verbosity();
         if !verbosity.show_unknown_values() && !verbosity.show_meta_values() {
             return;
         }
         if F::verbosity().show_meta_values() {
-            let mut meta_entry = None;
-            let id = value.type_id();
-            if id == TypeId::of::<meta::IsSome>() {
-                meta_entry.replace("#IsSome");
-            } else if id == TypeId::of::<meta::IsNone>() {
-                meta_entry.replace("#IsNone");
-            } else if id == TypeId::of::<meta::IsBorrowed>() {
-                meta_entry.replace("#IsBorrowed");
-            } else if id == TypeId::of::<meta::IsOwned>() {
-                meta_entry.replace("#IsOwned");
-            } else if id == TypeId::of::<meta::IsNull>() {
-                meta_entry.replace("#IsNull");
-            } else if id == TypeId::of::<meta::IsUnit>() {
-                meta_entry.replace("#IsUnit");
-            }
-
-            if let Some(meta_entry) = meta_entry {
-                self.set.entry(&format_args!("{meta_entry}"));
+            if let Some(info) = meta::MetaInfo::about_val(value) {
+                self.set.entry(&format_args!("#{}", info.name));
                 return;
             }
         }
@@ -500,6 +497,66 @@ impl<F: Format + ?Sized> Receiver for DebugReceiver<'_, '_, '_, F> {
     #[inline]
     fn accepts<T: 'static + ?Sized>() -> bool {
         true
+    }
+}
+pub trait Ellipsable {
+    fn ellipse<F: Format + ?Sized>(&self) -> impl Display;
+}
+
+#[derive(Debug)]
+struct Ellipsed<F, I>
+where
+    F: Format + ?Sized,
+    I: IntoIterator,
+    I::Item: Into<char>,
+{
+    format: PhantomData<F>,
+    iter: I,
+}
+
+impl<F, I> Display for Ellipsed<F, I>
+where
+    F: Format + ?Sized,
+    I: IntoIterator + Clone,
+    I::Item: Into<char>,
+{
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let thresh = F::verbosity().ellipsis_threshold();
+
+        let mut chars = self.iter.clone().into_iter();
+
+        match thresh {
+            None => chars.try_for_each(|c| f.write_char(c.into())),
+            Some(t) => {
+                chars
+                    .by_ref()
+                    .take(t.get() - 1)
+                    .try_for_each(|c| f.write_char(c.into()))?;
+
+                match chars.next() {
+                    // No more chars
+                    None => Ok(()),
+                    // At least two more chars
+                    Some(_) if chars.next().is_some() => f.write_str("…"),
+                    // Exactly one more char
+                    Some(c) => f.write_char(c.into()),
+                }
+            }
+        }
+    }
+}
+
+impl<T: IntoIterator + Clone> Ellipsable for T
+where
+    T::Item: Into<char>,
+{
+    #[inline]
+    fn ellipse<F: Format + ?Sized>(&self) -> impl Display {
+        Ellipsed {
+            format: PhantomData::<F>,
+            iter: self.to_owned(),
+        }
     }
 }
 
