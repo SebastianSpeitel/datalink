@@ -147,7 +147,7 @@ pub trait Format {
                     Value::Bytes(b) => {
                         write!(f, "{{b\"{}\"}}", b.escape_ascii().ellipse::<Self>())?;
                     }
-                    v => write!(f, "{{{:?}}}", v)?,
+                    v => write!(f, "{{{v}}}")?,
                 }
                 return Ok(());
             }
