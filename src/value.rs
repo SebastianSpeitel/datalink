@@ -139,6 +139,16 @@ impl ValueReceiver for Value {
     }
 
     #[inline]
+    fn other_boxed(&mut self, value: Box<dyn Any>) {
+        *self = Self::Other(value);
+    }
+
+    #[inline]
+    fn other_ref(&mut self, value: &dyn Any) {
+        // todo: warn
+    }
+
+    #[inline]
     fn accepts<T: 'static + ?Sized>() -> bool {
         // Todo: check if the type is accepted
         true
@@ -206,15 +216,9 @@ impl std::fmt::Display for Value {
             Value::I128(v) => f.write_fmt(format_args!("{v}i128")),
             Value::F32(v) => f.write_fmt(format_args!("{v}f32")),
             Value::F64(v) => f.write_fmt(format_args!("{v}f64")),
-            Value::Char(v) => f.write_fmt(format_args!("'{v}'")),
-            Value::String(v) => f.write_fmt(format_args!("\"{v}\"")),
-            Value::Bytes(v) => {
-                if let Ok(s) = std::str::from_utf8(v) {
-                    f.write_fmt(format_args!("b\"{s}\""))
-                } else {
-                    f.write_fmt(format_args!("{v:?}"))
-                }
-            }
+            Value::Char(v) => f.write_fmt(format_args!("'{}'", v.escape_default())),
+            Value::String(v) => f.write_fmt(format_args!("{v:?}")),
+            Value::Bytes(v) => f.write_fmt(format_args!("b{}", v.escape_ascii())),
             Value::Other(v) => f.write_fmt(format_args!("{v:?}")),
         }
     }
