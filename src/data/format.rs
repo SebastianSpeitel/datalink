@@ -518,7 +518,7 @@ impl<F: Format + ?Sized> Receiver for DebugReceiver<'_, '_, '_, F> {
         }
         if F::verbosity().show_meta_values() {
             if let Some(info) = meta::MetaInfo::about_val(value) {
-                self.set.entry(&format_args!("#{}", info.name));
+                self.set.entry(&format_args!("{info}"));
                 return;
             }
         }
