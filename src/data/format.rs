@@ -112,19 +112,10 @@ pub trait Format {
         // Format prefix
         Self::fmt_prefix(f, data)?;
 
-        if !data.has_links().unwrap_or(true) {
-            Self::fmt_unlinked(f, data, state)?;
+        if data.has_links().unwrap_or(true) {
+            Self::fmt_linked(f, data, state)?;
         } else {
-            let mut set = f.debug_set();
-
-            // Format values
-            Self::fmt_values_into_set(&mut set, data, state);
-
-            // Format links
-            Self::fmt_links_into_set(&mut set, data, state);
-
-            // Finish set
-            set.finish()?;
+            Self::fmt_unlinked(f, data, state)?;
         }
 
         // Format suffix
@@ -184,19 +175,54 @@ pub trait Format {
         }
 
         if let Some(val) = values.single() {
-            match val {
-                Value::String(s) => write!(f, "{{\"{}\"}}", s.escape_debug().ellipse::<Self>())?,
-                Value::Bytes(b) => {
-                    write!(f, "{{b\"{}\"}}", b.escape_ascii().ellipse::<Self>())?;
-                }
-                val => write!(f, "{{{val}}}")?,
-            }
-            return Ok(());
+            f.write_char('{')?;
+            Self::fmt_value(f, val)?;
+            return f.write_char('}');
         }
 
         let mut set = f.debug_set();
         Self::fmt_values_into_set(&mut set, &values, state);
         set.finish()
+    }
+
+    #[inline]
+    fn fmt_linked(
+        f: &mut fmt::Formatter<'_>,
+        data: &(impl Data + ?Sized),
+        state: Self::State,
+    ) -> fmt::Result {
+        let mut set = f.debug_set();
+
+        // Format values
+        Self::fmt_values_into_set(&mut set, data, state);
+
+        // Format links
+        Self::fmt_links_into_set(&mut set, data, state);
+
+        // Finish set
+        set.finish()
+    }
+
+    #[inline]
+    fn fmt_value(f: &mut fmt::Formatter, value: &crate::value::Value) -> fmt::Result {
+        use crate::value::Value;
+        match *value {
+            Value::String(ref s) => {
+                if Self::verbosity().ellipsis_threshold().is_some() {
+                    write!(f, "\"{}\"", s.escape_debug().ellipse::<Self>())
+                } else {
+                    write!(f, "{s:?}",)
+                }
+            }
+            Value::Bytes(ref b) => {
+                if Self::verbosity().ellipsis_threshold().is_some() {
+                    write!(f, "b\"{}\"", b.escape_ascii().ellipse::<Self>())
+                } else {
+                    write!(f, "b\"{}\"", b.escape_ascii())
+                }
+            }
+            ref v => write!(f, "{}", v),
+        }
     }
 
     #[inline]
