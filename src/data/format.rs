@@ -151,7 +151,7 @@ pub trait Format {
 
         if !v.collapse_value() {
             let mut set = f.debug_set();
-            Self::fmt_values_into_set(&mut set, &values, state);
+            Self::fmt_value_entries(&mut set, &values, state);
             return set.finish();
         }
 
@@ -181,7 +181,7 @@ pub trait Format {
         }
 
         let mut set = f.debug_set();
-        Self::fmt_values_into_set(&mut set, &values, state);
+        Self::fmt_value_entries(&mut set, &values, state);
         set.finish()
     }
 
@@ -194,10 +194,10 @@ pub trait Format {
         let mut set = f.debug_set();
 
         // Format values
-        Self::fmt_values_into_set(&mut set, data, state);
+        Self::fmt_value_entries(&mut set, data, state);
 
         // Format links
-        Self::fmt_links_into_set(&mut set, data, state);
+        Self::fmt_link_entries(&mut set, data, state);
 
         // Finish set
         set.finish()
@@ -266,7 +266,7 @@ pub trait Format {
 
     #[allow(unused_variables)]
     #[inline]
-    fn fmt_values_into_set(
+    fn fmt_value_entries(
         set: &mut fmt::DebugSet<'_, '_>,
         data: &(impl Data + ?Sized),
         state: Self::State,
@@ -279,7 +279,7 @@ pub trait Format {
 
     #[allow(unused_variables)]
     #[inline]
-    fn fmt_links_into_set(
+    fn fmt_link_entries(
         set: &mut fmt::DebugSet<'_, '_>,
         data: &(impl Data + ?Sized),
         state: Self::State,
@@ -304,7 +304,7 @@ impl<const SERIAL: bool, const MAX_DEPTH: u16, const VERBOSITY: i8> Format
     }
 
     #[inline]
-    fn fmt_links_into_set(
+    fn fmt_link_entries(
         set: &mut fmt::DebugSet<'_, '_>,
         data: &(impl Data + ?Sized),
         state: Self::State,
