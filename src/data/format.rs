@@ -28,7 +28,7 @@ pub trait Verbosity {
         false
     }
     #[inline]
-    fn collapse_linkless(&self) -> bool {
+    fn collapse_value(&self) -> bool {
         false
     }
     #[inline]
@@ -59,7 +59,7 @@ impl Verbosity for i8 {
         *self <= -1
     }
     #[inline]
-    fn collapse_linkless(&self) -> bool {
+    fn collapse_value(&self) -> bool {
         *self <= -1
     }
     #[inline]
@@ -109,83 +109,94 @@ pub trait Format {
         data: &(impl Data + ?Sized),
         state: Self::State,
     ) -> fmt::Result {
-        let verbosity = Self::verbosity();
-
         // Format prefix
         Self::fmt_prefix(f, data)?;
 
-        let is_linkless = || !data.has_links().unwrap_or(true);
+        if !data.has_links().unwrap_or(true) {
+            Self::fmt_unlinked(f, data, state)?;
+        } else {
+            let mut set = f.debug_set();
 
-        if verbosity.collapse_linkless() && is_linkless() {
-            use crate::value::{AllValues, Value};
-            let mut values = AllValues::default();
-            data.provide_value(Request::new(&mut values as &mut dyn Receiver));
-            if values.len() == 0 {
-                f.write_str("{}")?;
-                return Ok(());
-            }
+            // Format values
+            Self::fmt_values_into_set(&mut set, data, state);
 
-            if !verbosity.show_unknown_values() {
-                values.retain(|v| match v {
-                    Value::Other(v) => {
-                        verbosity.show_meta_values() && meta::MetaInfo::about_val(v).is_some()
-                    }
-                    _ => true,
-                });
-            }
+            // Format links
+            Self::fmt_links_into_set(&mut set, data, state);
 
-            if values.len() == 0 {
-                f.write_str("{}")?;
-                return Ok(());
-            }
-
-            if let Some(val) = values.single() {
-                match val {
-                    Value::String(s) => {
-                        write!(f, "{{\"{}\"}}", s.escape_debug().ellipse::<Self>())?
-                    }
-                    Value::Bytes(b) => {
-                        write!(f, "{{b\"{}\"}}", b.escape_ascii().ellipse::<Self>())?;
-                    }
-                    v => write!(f, "{{{v}}}")?,
-                }
-                return Ok(());
-            }
-
-            if verbosity.dedup_number_values() {
-                let num = values
-                    .into_iter()
-                    .try_fold(None, |num, val| match (num, val.as_number()) {
-                        // First number value
-                        (None, Some(n)) => Some(Some(n)),
-                        // Same number value
-                        (Some(n), Some(m)) if n == m => Some(Some(n)),
-                        // Different or not a number
-                        _ => None,
-                    })
-                    .flatten();
-
-                if let Some(num) = num {
-                    f.write_fmt(format_args!("{{{num}}}"))?;
-                    return Ok(());
-                }
-            }
+            // Finish set
+            set.finish()?;
         }
-
-        let mut set = f.debug_set();
-
-        // Format values
-        Self::fmt_values_into_set(&mut set, data, state);
-
-        // Format links
-        Self::fmt_links_into_set(&mut set, data, state);
-
-        // Finish set
-        set.finish()?;
 
         // Format suffix
         Self::fmt_suffix(f, data)?;
         Ok(())
+    }
+
+    #[inline]
+    fn fmt_unlinked(
+        f: &mut fmt::Formatter<'_>,
+        data: &(impl Data + ?Sized),
+        state: Self::State,
+    ) -> fmt::Result {
+        use crate::value::{AllValues, Value};
+        let mut values = AllValues::default();
+        data.provide_value(Request::new(&mut values as &mut dyn Receiver));
+
+        let v = Self::verbosity();
+
+        if !v.show_unknown_values() {
+            values.retain(|val| match val {
+                Value::Other(val) => {
+                    v.show_meta_values() && meta::MetaInfo::about_val(val).is_some()
+                }
+                _ => true,
+            });
+        }
+
+        if values.len() == 0 {
+            f.write_str("{}")?;
+            return Ok(());
+        }
+
+        if !v.collapse_value() {
+            let mut set = f.debug_set();
+            Self::fmt_values_into_set(&mut set, &values, state);
+            return set.finish();
+        }
+
+        if v.dedup_number_values() {
+            let num = values
+                .iter()
+                .try_fold(None, |num, val| match (num, val.as_number()) {
+                    // First number value
+                    (None, Some(n)) => Some(Some(n)),
+                    // Same number value
+                    (Some(n), Some(m)) if n == m => Some(Some(n)),
+                    // Different or not a number
+                    _ => None,
+                })
+                .flatten();
+
+            if let Some(num) = num {
+                f.write_fmt(format_args!("{{{num}}}"))?;
+                return Ok(());
+            }
+        }
+
+        if let Some(val) = values.single() {
+            match val {
+                Value::String(s) => write!(f, "{{\"{}\"}}", s.escape_debug().ellipse::<Self>())?,
+                Value::Bytes(b) => {
+                    write!(f, "{{b\"{}\"}}", b.escape_ascii().ellipse::<Self>())?;
+                }
+                val => write!(f, "{{{val}}}")?,
+            }
+            return Ok(());
+        }
+
+        let mut set = f.debug_set();
+        Self::fmt_values_into_set(&mut set, &values, state);
+        set.finish()
     }
 
     #[inline]
