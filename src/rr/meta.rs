@@ -52,6 +52,13 @@ impl MetaInfo {
     }
 }
 
+impl core::fmt::Display for MetaInfo {
+    #[inline]
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        write!(f, "#{}", self.name)
+    }
+}
+
 impl TryFrom<TypeId> for MetaInfo {
     type Error = ();
 
