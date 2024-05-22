@@ -22,42 +22,13 @@ pub type COMPACT<const MAX_DEPTH: u16 = 6, const VERBOSITY: i8 = -1> =
     FORMAT<true, MAX_DEPTH, VERBOSITY>;
 pub type DEBUG = FORMAT<true, 6, 1>;
 
-pub trait Verbosity {
-    #[inline]
-    fn compact_prefix(&self) -> bool {
-        false
-    }
-    #[inline]
-    fn collapse_value(&self) -> bool {
-        false
-    }
-    #[inline]
-    fn dedup_number_values(&self) -> bool {
-        false
-    }
-    #[inline]
-    fn show_id(&self) -> bool {
-        false
-    }
-    #[inline]
-    fn ellipsis_threshold(&self) -> Option<core::num::NonZeroUsize> {
-        1024.try_into().ok()
-    }
-    #[inline]
-    fn show_meta_values(&self) -> bool {
-        false
-    }
-    #[inline]
-    fn show_unknown_values(&self) -> bool {
-        false
-    }
+trait Verbosity {
+    fn collapse_value(&self) -> bool;
+    fn dedup_number_values(&self) -> bool;
+    fn show_id(&self) -> bool;
 }
 
 impl Verbosity for i8 {
-    #[inline]
-    fn compact_prefix(&self) -> bool {
-        *self <= -1
-    }
     #[inline]
     fn collapse_value(&self) -> bool {
         *self <= -1
@@ -70,32 +41,18 @@ impl Verbosity for i8 {
     fn show_id(&self) -> bool {
         *self >= 1
     }
-    #[inline]
-    fn ellipsis_threshold(&self) -> Option<core::num::NonZeroUsize> {
-        match *self {
-            1.. => None,
-            0 => 1024.try_into().ok(),
-            ..=-1 => 25.try_into().ok(),
-        }
-    }
-    #[inline]
-    fn show_meta_values(&self) -> bool {
-        *self >= 0
-    }
-    #[inline]
-    fn show_unknown_values(&self) -> bool {
-        *self >= 1
-    }
 }
 
 pub trait Format {
     type State: Default + Copy;
-
-    #[inline]
-    #[must_use]
-    fn verbosity() -> impl Verbosity {
-        0
-    }
+    const PREFIX: &'static str = "Data";
+    const SUFFIX: &'static str = "";
+    /// `0` means no threshold
+    const ELLIPSIS_THRESHOLD: usize = 0;
+    /// Hide meta values from output
+    const HIDE_META: bool = false;
+    /// Hide unknown values from output
+    const HIDE_UNKNOWN: bool = false;
 
     #[inline]
     #[must_use]
@@ -123,65 +80,20 @@ pub trait Format {
         Ok(())
     }
 
+    #[allow(unused_variables)]
+    #[inline]
+    fn fmt_empty(f: &mut fmt::Formatter, state: Self::State) -> fmt::Result {
+        f.write_str("{{}")
+    }
+
     #[inline]
     fn fmt_unlinked(
         f: &mut fmt::Formatter<'_>,
         data: &(impl Data + ?Sized),
         state: Self::State,
     ) -> fmt::Result {
-        use crate::value::{AllValues, Value};
-        let mut values = AllValues::default();
-        data.provide_value(Request::new(&mut values as &mut dyn Receiver));
-
-        let v = Self::verbosity();
-
-        if !v.show_unknown_values() {
-            values.retain(|val| match val {
-                Value::Other(val) => {
-                    v.show_meta_values() && meta::MetaInfo::about_val(val).is_some()
-                }
-                _ => true,
-            });
-        }
-
-        if values.len() == 0 {
-            f.write_str("{}")?;
-            return Ok(());
-        }
-
-        if !v.collapse_value() {
-            let mut set = f.debug_set();
-            Self::fmt_value_entries(&mut set, &values, state);
-            return set.finish();
-        }
-
-        if v.dedup_number_values() {
-            let num = values
-                .iter()
-                .try_fold(None, |num, val| match (num, val.as_number()) {
-                    // First number value
-                    (None, Some(n)) => Some(Some(n)),
-                    // Same number value
-                    (Some(n), Some(m)) if n == m => Some(Some(n)),
-                    // Different or not a number
-                    _ => None,
-                })
-                .flatten();
-
-            if let Some(num) = num {
-                f.write_fmt(format_args!("{{{num}}}"))?;
-                return Ok(());
-            }
-        }
-
-        if let Some(val) = values.single() {
-            f.write_char('{')?;
-            Self::fmt_value(f, val)?;
-            return f.write_char('}');
-        }
-
         let mut set = f.debug_set();
-        Self::fmt_value_entries(&mut set, &values, state);
+        Self::fmt_value_entries(&mut set, data, state);
         set.finish()
     }
 
@@ -203,50 +115,56 @@ pub trait Format {
         set.finish()
     }
 
+    #[allow(unused_variables)]
     #[inline]
-    fn fmt_value(f: &mut fmt::Formatter, value: &crate::value::Value) -> fmt::Result {
-        use crate::value::Value;
-        match *value {
-            Value::String(ref s) => {
-                if Self::verbosity().ellipsis_threshold().is_some() {
-                    write!(f, "\"{}\"", s.escape_debug().ellipse::<Self>())
-                } else {
-                    write!(f, "{s:?}",)
-                }
-            }
-            Value::Bytes(ref b) => {
-                if Self::verbosity().ellipsis_threshold().is_some() {
-                    write!(f, "b\"{}\"", b.escape_ascii().ellipse::<Self>())
-                } else {
-                    write!(f, "b\"{}\"", b.escape_ascii())
-                }
-            }
-            ref v => write!(f, "{}", v),
+    fn fmt_prefix(f: &mut fmt::Formatter, data: &(impl Data + ?Sized)) -> fmt::Result {
+        if Self::PREFIX.is_empty() {
+            return Ok(());
         }
-    }
-
-    #[inline]
-    fn fmt_prefix(f: &mut fmt::Formatter<'_>, data: &(impl Data + ?Sized)) -> fmt::Result {
-        if Self::verbosity().compact_prefix() {
-            f.write_str("D")?;
-        } else {
-            f.write_str("Data")?;
-        }
-
-        #[cfg(feature = "unique")]
-        if Self::verbosity().show_id() {
-            if let Some(id) = data.get_id() {
-                f.write_fmt(format_args!("[{id}]"))?;
-            }
-        }
-
-        Ok(())
+        f.write_str(Self::PREFIX)
     }
 
     #[allow(unused_variables)]
     #[inline]
     fn fmt_suffix(f: &mut fmt::Formatter<'_>, data: &(impl Data + ?Sized)) -> fmt::Result {
-        Ok(())
+        if Self::SUFFIX.is_empty() {
+            return Ok(());
+        }
+        f.write_str(Self::SUFFIX)
+    }
+
+    #[inline]
+    fn fmt_str(f: &mut fmt::Formatter, str: &str) -> fmt::Result {
+        if Self::ELLIPSIS_THRESHOLD == 0 {
+            Debug::fmt(str, f)
+        } else if str.len() >= Self::ELLIPSIS_THRESHOLD.div_ceil(8) {
+            write!(f, "\"{}\"", str.escape_debug().ellipse::<Self>())
+        } else {
+            Debug::fmt(str, f)
+        }
+    }
+
+    #[inline]
+    fn fmt_bytes(f: &mut fmt::Formatter, bytes: &[u8]) -> fmt::Result {
+        let escaped = bytes.escape_ascii();
+        if Self::ELLIPSIS_THRESHOLD == 0 {
+            write!(f, "b\"{escaped}\"")
+        } else if bytes.len() >= Self::ELLIPSIS_THRESHOLD.div_ceil(8) {
+            write!(f, "b\"{}\"", escaped.ellipse::<Self>())
+        } else {
+            write!(f, "b\"{escaped}\"")
+        }
+    }
+
+    #[inline]
+    fn fmt_value(f: &mut fmt::Formatter, value: &crate::value::Value) -> fmt::Result {
+        use crate::value::Value;
+
+        match value {
+            Value::String(s) => Self::fmt_str(f, s),
+            Value::Bytes(b) => Self::fmt_bytes(f, b),
+            v => Display::fmt(v, f),
+        }
     }
 
     #[inline]
@@ -292,15 +210,123 @@ impl<const SERIAL: bool, const MAX_DEPTH: u16, const VERBOSITY: i8> Format
     for FORMAT<SERIAL, MAX_DEPTH, VERBOSITY>
 {
     type State = u16;
-
-    #[inline]
-    fn verbosity() -> impl Verbosity {
-        VERBOSITY
-    }
+    const ELLIPSIS_THRESHOLD: usize = {
+        match VERBOSITY {
+            1.. => 0,
+            0 => 1024,
+            ..=-1 => 25,
+        }
+    };
+    const PREFIX: &'static str = {
+        match VERBOSITY {
+            ..=-1 => "D",
+            _ => "Data",
+        }
+    };
+    const HIDE_UNKNOWN: bool = VERBOSITY <= 0;
+    const HIDE_META: bool = VERBOSITY <= -1;
 
     #[inline]
     fn init_state() -> Self::State {
         MAX_DEPTH
+    }
+
+    #[inline]
+    fn fmt_prefix(f: &mut fmt::Formatter, data: &(impl Data + ?Sized)) -> fmt::Result {
+        f.write_str(Self::PREFIX)?;
+
+        #[cfg(feature = "unique")]
+        if VERBOSITY.show_id() {
+            if let Some(id) = data.get_id() {
+                f.write_fmt(format_args!("[{id}]"))?;
+            }
+        }
+
+        Ok(())
+    }
+
+    #[inline]
+    fn fmt_unlinked(
+        f: &mut fmt::Formatter<'_>,
+        data: &(impl Data + ?Sized),
+        state: Self::State,
+    ) -> fmt::Result {
+        use crate::value::{AllValues, Value};
+        let mut values = AllValues::default();
+        data.provide_value(Request::new(&mut values as &mut dyn Receiver));
+
+        if values.is_empty() {
+            return Self::fmt_empty(f, state);
+        }
+
+        if Self::HIDE_UNKNOWN || Self::HIDE_META {
+            values.retain(|val| match val {
+                Value::Other(val) => {
+                    if Self::HIDE_UNKNOWN && Self::HIDE_META {
+                        return false;
+                    }
+
+                    if meta::MetaInfo::about_val(val).is_some() {
+                        return !Self::HIDE_META;
+                    }
+
+                    !Self::HIDE_UNKNOWN
+                }
+                _ => true,
+            });
+        }
+
+        if values.is_empty() {
+            return Self::fmt_empty(f, state);
+        }
+
+        if !VERBOSITY.collapse_value() {
+            let mut set = f.debug_set();
+            Self::fmt_value_entries(&mut set, &values, state);
+            return set.finish();
+        }
+
+        if VERBOSITY.dedup_number_values() {
+            let num = values
+                .iter()
+                .try_fold(None, |num, val| match (num, val.as_number()) {
+                    // First number value
+                    (None, Some(n)) => Some(Some(n)),
+                    // Same number value
+                    (Some(n), Some(m)) if n == m => Some(Some(n)),
+                    // Different or not a number
+                    _ => None,
+                })
+                .flatten();
+
+            if let Some(num) = num {
+                f.write_fmt(format_args!("{{{num}}}"))?;
+                return Ok(());
+            }
+        }
+
+        if let Some(val) = values.single() {
+            f.write_char('{')?;
+            Self::fmt_value(f, val)?;
+            return f.write_char('}');
+        }
+
+        let mut set = f.debug_set();
+        Self::fmt_value_entries(&mut set, &values, state);
+        set.finish()
+    }
+
+    #[allow(unused_variables)]
+    #[inline]
+    fn fmt_value_entries(
+        set: &mut fmt::DebugSet<'_, '_>,
+        data: &(impl Data + ?Sized),
+        state: Self::State,
+    ) {
+        let mut receiver = DebugReceiver::<Self> { set, state };
+
+        let request = Request::new(&mut receiver as &mut dyn Receiver);
+        data.provide_value(request);
     }
 
     #[inline]
@@ -512,15 +538,15 @@ impl<F: Format + ?Sized> Receiver for DebugReceiver<'_, '_, '_, F> {
 
     #[inline]
     fn other_ref(&mut self, value: &dyn std::any::Any) {
-        let verbosity = F::verbosity();
-        if !verbosity.show_unknown_values() && !verbosity.show_meta_values() {
+        if F::HIDE_UNKNOWN && F::HIDE_META {
             return;
         }
-        if F::verbosity().show_meta_values() {
-            if let Some(info) = meta::MetaInfo::about_val(value) {
+
+        if let Some(info) = meta::MetaInfo::about_val(value) {
+            if !F::HIDE_META {
                 self.set.entry(&format_args!("{info}"));
-                return;
             }
+            return;
         }
 
         self.set.entry(&"{{unknown}}");
@@ -559,27 +585,24 @@ where
 {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let thresh = F::verbosity().ellipsis_threshold();
-
         let mut chars = self.iter.clone().into_iter();
 
-        match thresh {
-            None => chars.try_for_each(|c| f.write_char(c.into())),
-            Some(t) => {
-                chars
-                    .by_ref()
-                    .take(t.get() - 1)
-                    .try_for_each(|c| f.write_char(c.into()))?;
+        if F::ELLIPSIS_THRESHOLD == 0 {
+            return chars.try_for_each(|c| f.write_char(c.into()));
+        }
 
-                match chars.next() {
-                    // No more chars
-                    None => Ok(()),
-                    // At least two more chars
-                    Some(_) if chars.next().is_some() => f.write_str("…"),
-                    // Exactly one more char
-                    Some(c) => f.write_char(c.into()),
-                }
-            }
+        chars
+            .by_ref()
+            .take(F::ELLIPSIS_THRESHOLD - 1)
+            .try_for_each(|c| f.write_char(c.into()))?;
+
+        match chars.next() {
+            // No more chars
+            None => Ok(()),
+            // At least two more chars
+            Some(_) if chars.next().is_some() => f.write_char('…'),
+            // Exactly one more char
+            Some(c) => f.write_char(c.into()),
         }
     }
 }
