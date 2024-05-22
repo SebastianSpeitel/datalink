@@ -219,12 +219,6 @@ impl<const SERIAL: bool, const MAX_DEPTH: u16, const VERBOSITY: i8> Format
             ..=-1 => 25,
         }
     };
-    const PREFIX: &'static str = {
-        match VERBOSITY {
-            ..=-1 => "D",
-            _ => "Data",
-        }
-    };
     const HIDE_UNKNOWN: bool = VERBOSITY <= 0;
     const HIDE_META: bool = VERBOSITY <= -1;
 
