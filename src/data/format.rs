@@ -539,7 +539,7 @@ impl<F: Format + ?Sized> Receiver for DebugReceiver<'_, '_, '_, F> {
             return;
         }
 
-        self.set.entry(&"{{unknown}}");
+        self.set.entry(&format_args!("{{unknown}}"));
     }
 
     #[inline]
