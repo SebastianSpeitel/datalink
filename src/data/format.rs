@@ -304,15 +304,6 @@ impl<const SERIAL: bool, const MAX_DEPTH: u16, const VERBOSITY: i8> Format
         set.finish()
     }
 
-    #[allow(unused_variables)]
-    #[inline]
-    fn fmt_value_entries(set: &mut fmt::DebugSet, data: &(impl Data + ?Sized), state: Self::State) {
-        let mut receiver = DebugReceiver::<Self> { set, state };
-
-        let request = Request::new(&mut receiver as &mut dyn Receiver);
-        data.provide_value(request);
-    }
-
     #[inline]
     fn fmt_link_entries(set: &mut fmt::DebugSet, data: &(impl Data + ?Sized), state: Self::State) {
         if MAX_DEPTH == 0 || state == 0 {
