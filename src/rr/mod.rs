@@ -46,7 +46,7 @@ impl<R: Req> Req for IgnoreMeta<R> {
 
     #[inline]
     fn requests<T: 'static + ?Sized>() -> bool {
-        if meta::MetaInfo::about::<T>().is_some() {
+        if meta::MetaInfo::about::<T>().name().is_some() {
             return false;
         }
         R::requests::<T>()

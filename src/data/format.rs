@@ -275,7 +275,7 @@ impl<const SERIAL: bool, const MAX_DEPTH: u16, const VERBOSITY: i8> Format
                         return false;
                     }
 
-                    if meta::MetaInfo::about_val(val).is_some() {
+                    if meta::MetaInfo::about_val(val).name().is_some() {
                         return !Self::HIDE_META;
                     }
 
@@ -544,10 +544,9 @@ impl<F: Format + ?Sized> Receiver for DebugReceiver<'_, '_, '_, F> {
             return;
         }
 
-        if let Some(info) = meta::MetaInfo::about_val(value) {
-            if !F::HIDE_META {
-                self.set.entry(&format_args!("{info}"));
-            }
+        let info = meta::MetaInfo::about_val(value);
+        if !F::HIDE_META && info.name().is_some() {
+            self.set.entry(&format_args!("{info}"));
             return;
         }
 

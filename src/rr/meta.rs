@@ -14,56 +14,60 @@ pub struct IsNull;
 pub struct IsUnit;
 
 #[derive(Debug)]
-pub struct MetaInfo {
-    pub name: &'static str,
-}
+#[repr(transparent)]
+pub struct MetaInfo(TypeId);
 
 impl MetaInfo {
     #[inline]
-    pub fn from_type_id(type_id: TypeId) -> Option<Self> {
-        let info = if type_id == TypeId::of::<IsNone>() {
-            Self { name: "IsNone" }
-        } else if type_id == TypeId::of::<IsSome>() {
-            Self { name: "IsSome" }
-        } else if type_id == TypeId::of::<IsBorrowed>() {
-            Self { name: "IsBorrowed" }
-        } else if type_id == TypeId::of::<IsOwned>() {
-            Self { name: "IsOwned" }
-        } else if type_id == TypeId::of::<IsNull>() {
-            Self { name: "IsNull" }
-        } else if type_id == TypeId::of::<IsUnit>() {
-            Self { name: "IsUnit" }
-        } else {
-            return None;
-        };
-        Some(info)
+    #[must_use]
+    pub const fn new(type_id: TypeId) -> Self {
+        Self(type_id)
     }
 
     #[inline]
-    pub fn about<T: 'static + ?Sized>() -> Option<Self> {
+    #[must_use]
+    pub fn about<T: 'static + ?Sized>() -> Self {
         let id = TypeId::of::<T>();
-        Self::from_type_id(id)
+        Self::new(id)
     }
 
     #[inline]
-    pub fn about_val(value: &dyn core::any::Any) -> Option<Self> {
+    #[must_use]
+    pub fn about_val(value: &dyn core::any::Any) -> Self {
         let id = value.type_id();
-        Self::from_type_id(id)
+        Self::new(id)
+    }
+
+    #[inline]
+    pub fn name(&self) -> Option<&'static str> {
+        if self.0 == TypeId::of::<IsNone>() {
+            Some("IsNone")
+        } else if self.0 == TypeId::of::<IsSome>() {
+            Some("IsSome")
+        } else if self.0 == TypeId::of::<IsBorrowed>() {
+            Some("IsBorrowed")
+        } else if self.0 == TypeId::of::<IsOwned>() {
+            Some("IsOwned")
+        } else if self.0 == TypeId::of::<IsNull>() {
+            Some("IsNull")
+        } else if self.0 == TypeId::of::<IsUnit>() {
+            Some("IsUnit")
+        } else {
+            None
+        }
     }
 }
 
 impl core::fmt::Display for MetaInfo {
     #[inline]
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(f, "#{}", self.name)
+        write!(f, "#{}", self.name().unwrap_or("Unknown"))
     }
 }
 
-impl TryFrom<TypeId> for MetaInfo {
-    type Error = ();
-
+impl From<TypeId> for MetaInfo {
     #[inline]
-    fn try_from(type_id: TypeId) -> Result<Self, Self::Error> {
-        Self::from_type_id(type_id).ok_or(())
+    fn from(type_id: TypeId) -> Self {
+        Self::new(type_id)
     }
 }
