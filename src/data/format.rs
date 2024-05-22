@@ -61,11 +61,7 @@ pub trait Format {
     }
 
     #[inline]
-    fn fmt(
-        f: &mut fmt::Formatter<'_>,
-        data: &(impl Data + ?Sized),
-        state: Self::State,
-    ) -> fmt::Result {
+    fn fmt(f: &mut fmt::Formatter, data: &(impl Data + ?Sized), state: Self::State) -> fmt::Result {
         // Format prefix
         Self::fmt_prefix(f, data)?;
 
@@ -88,7 +84,7 @@ pub trait Format {
 
     #[inline]
     fn fmt_unlinked(
-        f: &mut fmt::Formatter<'_>,
+        f: &mut fmt::Formatter,
         data: &(impl Data + ?Sized),
         state: Self::State,
     ) -> fmt::Result {
@@ -99,7 +95,7 @@ pub trait Format {
 
     #[inline]
     fn fmt_linked(
-        f: &mut fmt::Formatter<'_>,
+        f: &mut fmt::Formatter,
         data: &(impl Data + ?Sized),
         state: Self::State,
     ) -> fmt::Result {
@@ -126,7 +122,7 @@ pub trait Format {
 
     #[allow(unused_variables)]
     #[inline]
-    fn fmt_suffix(f: &mut fmt::Formatter<'_>, data: &(impl Data + ?Sized)) -> fmt::Result {
+    fn fmt_suffix(f: &mut fmt::Formatter, data: &(impl Data + ?Sized)) -> fmt::Result {
         if Self::SUFFIX.is_empty() {
             return Ok(());
         }
@@ -168,8 +164,8 @@ pub trait Format {
     }
 
     #[inline]
-    fn fmt_link<'a, 'b, L: Link>(
-        f: &'a mut fmt::Formatter<'b>,
+    fn fmt_link<L: Link>(
+        f: &'_ mut fmt::Formatter<'_>,
         link: &L,
         state: Self::State,
     ) -> fmt::Result {
@@ -184,11 +180,7 @@ pub trait Format {
 
     #[allow(unused_variables)]
     #[inline]
-    fn fmt_value_entries(
-        set: &mut fmt::DebugSet<'_, '_>,
-        data: &(impl Data + ?Sized),
-        state: Self::State,
-    ) {
+    fn fmt_value_entries(set: &mut fmt::DebugSet, data: &(impl Data + ?Sized), state: Self::State) {
         let mut receiver = DebugReceiver::<Self> { set, state };
 
         let request = Request::new(&mut receiver as &mut dyn Receiver);
@@ -197,11 +189,7 @@ pub trait Format {
 
     #[allow(unused_variables)]
     #[inline]
-    fn fmt_link_entries(
-        set: &mut fmt::DebugSet<'_, '_>,
-        data: &(impl Data + ?Sized),
-        state: Self::State,
-    ) {
+    fn fmt_link_entries(set: &mut fmt::DebugSet, data: &(impl Data + ?Sized), state: Self::State) {
         set.entry(&format_args!("..."));
     }
 }
@@ -247,7 +235,7 @@ impl<const SERIAL: bool, const MAX_DEPTH: u16, const VERBOSITY: i8> Format
 
     #[inline]
     fn fmt_unlinked(
-        f: &mut fmt::Formatter<'_>,
+        f: &mut fmt::Formatter,
         data: &(impl Data + ?Sized),
         state: Self::State,
     ) -> fmt::Result {
@@ -318,11 +306,7 @@ impl<const SERIAL: bool, const MAX_DEPTH: u16, const VERBOSITY: i8> Format
 
     #[allow(unused_variables)]
     #[inline]
-    fn fmt_value_entries(
-        set: &mut fmt::DebugSet<'_, '_>,
-        data: &(impl Data + ?Sized),
-        state: Self::State,
-    ) {
+    fn fmt_value_entries(set: &mut fmt::DebugSet, data: &(impl Data + ?Sized), state: Self::State) {
         let mut receiver = DebugReceiver::<Self> { set, state };
 
         let request = Request::new(&mut receiver as &mut dyn Receiver);
@@ -330,11 +314,7 @@ impl<const SERIAL: bool, const MAX_DEPTH: u16, const VERBOSITY: i8> Format
     }
 
     #[inline]
-    fn fmt_link_entries(
-        set: &mut fmt::DebugSet<'_, '_>,
-        data: &(impl Data + ?Sized),
-        state: Self::State,
-    ) {
+    fn fmt_link_entries(set: &mut fmt::DebugSet, data: &(impl Data + ?Sized), state: Self::State) {
         if MAX_DEPTH == 0 || state == 0 {
             set.entry(&format_args!("..."));
             return;
@@ -377,14 +357,14 @@ impl<'d, F: Format, D: Data + ?Sized> From<&'d D> for FormattableData<'d, F, D> 
 
 impl<F: Format, D: Data + ?Sized> Display for FormattableData<'_, F, D> {
     #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         F::fmt(f, self.data, F::init_state())
     }
 }
 
 impl<F: Format, D: Data + ?Sized> Debug for FormattableData<'_, F, D> {
     #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         F::fmt(f, self.data, F::init_state())
     }
 }
@@ -396,7 +376,7 @@ struct LinkEntry<L, F: Format + ?Sized> {
 
 impl<L: Link, F: Format + ?Sized> Debug for LinkEntry<L, F> {
     #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         F::fmt_link(f, &self.link, self.state)
     }
 }
@@ -594,7 +574,7 @@ where
     I::Item: Into<char>,
 {
     #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut chars = self.iter.clone().into_iter();
 
         if F::ELLIPSIS_THRESHOLD == 0 {
