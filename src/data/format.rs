@@ -79,7 +79,7 @@ pub trait Format {
     #[allow(unused_variables)]
     #[inline]
     fn fmt_empty(f: &mut fmt::Formatter, state: Self::State) -> fmt::Result {
-        f.write_str("{{}")
+        f.write_str("{}")
     }
 
     #[inline]
