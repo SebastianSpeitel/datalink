@@ -239,7 +239,10 @@ impl<const SERIAL: bool, const MAX_DEPTH: u16, const VERBOSITY: i8> Format
         data: &(impl Data + ?Sized),
         state: Self::State,
     ) -> fmt::Result {
-        f.write_str(Self::PREFIX)?;
+        // Only print prefix on first level
+        if MAX_DEPTH == 0 || MAX_DEPTH == state {
+            f.write_str(Self::PREFIX)?;
+        }
 
         #[cfg(feature = "unique")]
         if VERBOSITY.show_id() {
