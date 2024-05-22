@@ -512,10 +512,15 @@ impl<F: Format + ?Sized> Receiver for DebugReceiver<'_, '_, '_, F> {
 
     #[inline]
     fn str(&mut self, value: &str) {
-        self.set.entry(&format_args!(
-            "str: \"{}\"",
-            value.escape_default().ellipse::<F>()
-        ));
+        struct StrEntry<'a, F: ?Sized>(&'a str, PhantomData<F>);
+        impl<F: Format + ?Sized> Debug for StrEntry<'_, F> {
+            #[inline]
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("str: ")?;
+                F::fmt_str(f, self.0)
+            }
+        }
+        self.set.entry(&StrEntry::<F>(value, PhantomData));
     }
 
     #[inline]
@@ -525,10 +530,15 @@ impl<F: Format + ?Sized> Receiver for DebugReceiver<'_, '_, '_, F> {
 
     #[inline]
     fn bytes(&mut self, value: &[u8]) {
-        self.set.entry(&format_args!(
-            "bytes: b\"{}\"",
-            value.escape_ascii().ellipse::<F>()
-        ));
+        struct BytesEntry<'a, F: ?Sized>(&'a [u8], PhantomData<F>);
+        impl<F: Format + ?Sized> Debug for BytesEntry<'_, F> {
+            #[inline]
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("bytes: ")?;
+                F::fmt_bytes(f, self.0)
+            }
+        }
+        self.set.entry(&BytesEntry::<F>(value, PhantomData));
     }
 
     #[inline]
