@@ -63,7 +63,7 @@ pub trait Format {
     #[inline]
     fn fmt(f: &mut fmt::Formatter, data: &(impl Data + ?Sized), state: Self::State) -> fmt::Result {
         // Format prefix
-        Self::fmt_prefix(f, data)?;
+        Self::fmt_prefix(f, data, state)?;
 
         if data.has_links().unwrap_or(true) {
             Self::fmt_linked(f, data, state)?;
@@ -72,7 +72,7 @@ pub trait Format {
         }
 
         // Format suffix
-        Self::fmt_suffix(f, data)?;
+        Self::fmt_suffix(f, data, state)?;
         Ok(())
     }
 
@@ -113,7 +113,11 @@ pub trait Format {
 
     #[allow(unused_variables)]
     #[inline]
-    fn fmt_prefix(f: &mut fmt::Formatter, data: &(impl Data + ?Sized)) -> fmt::Result {
+    fn fmt_prefix(
+        f: &mut fmt::Formatter,
+        data: &(impl Data + ?Sized),
+        state: Self::State,
+    ) -> fmt::Result {
         if Self::PREFIX.is_empty() {
             return Ok(());
         }
@@ -122,15 +126,20 @@ pub trait Format {
 
     #[allow(unused_variables)]
     #[inline]
-    fn fmt_suffix(f: &mut fmt::Formatter, data: &(impl Data + ?Sized)) -> fmt::Result {
+    fn fmt_suffix(
+        f: &mut fmt::Formatter,
+        data: &(impl Data + ?Sized),
+        state: Self::State,
+    ) -> fmt::Result {
         if Self::SUFFIX.is_empty() {
             return Ok(());
         }
         f.write_str(Self::SUFFIX)
     }
 
+    #[allow(unused_variables)]
     #[inline]
-    fn fmt_str(f: &mut fmt::Formatter, str: &str) -> fmt::Result {
+    fn fmt_str(f: &mut fmt::Formatter, str: &str, state: Self::State) -> fmt::Result {
         if Self::ELLIPSIS_THRESHOLD == 0 {
             Debug::fmt(str, f)
         } else if str.len() >= Self::ELLIPSIS_THRESHOLD.div_ceil(8) {
@@ -140,8 +149,9 @@ pub trait Format {
         }
     }
 
+    #[allow(unused_variables)]
     #[inline]
-    fn fmt_bytes(f: &mut fmt::Formatter, bytes: &[u8]) -> fmt::Result {
+    fn fmt_bytes(f: &mut fmt::Formatter, bytes: &[u8], state: Self::State) -> fmt::Result {
         let escaped = bytes.escape_ascii();
         if Self::ELLIPSIS_THRESHOLD == 0 {
             write!(f, "b\"{escaped}\"")
@@ -153,12 +163,16 @@ pub trait Format {
     }
 
     #[inline]
-    fn fmt_value(f: &mut fmt::Formatter, value: &crate::value::Value) -> fmt::Result {
+    fn fmt_value(
+        f: &mut fmt::Formatter,
+        value: &crate::value::Value,
+        state: Self::State,
+    ) -> fmt::Result {
         use crate::value::Value;
 
         match value {
-            Value::String(s) => Self::fmt_str(f, s),
-            Value::Bytes(b) => Self::fmt_bytes(f, b),
+            Value::String(s) => Self::fmt_str(f, s, state),
+            Value::Bytes(b) => Self::fmt_bytes(f, b, state),
             v => Display::fmt(v, f),
         }
     }
@@ -220,7 +234,11 @@ impl<const SERIAL: bool, const MAX_DEPTH: u16, const VERBOSITY: i8> Format
     }
 
     #[inline]
-    fn fmt_prefix(f: &mut fmt::Formatter, data: &(impl Data + ?Sized)) -> fmt::Result {
+    fn fmt_prefix(
+        f: &mut fmt::Formatter,
+        data: &(impl Data + ?Sized),
+        state: Self::State,
+    ) -> fmt::Result {
         f.write_str(Self::PREFIX)?;
 
         #[cfg(feature = "unique")]
@@ -295,7 +313,7 @@ impl<const SERIAL: bool, const MAX_DEPTH: u16, const VERBOSITY: i8> Format
 
         if let Some(val) = values.single() {
             f.write_char('{')?;
-            Self::fmt_value(f, val)?;
+            Self::fmt_value(f, val, state)?;
             return f.write_char('}');
         }
 
@@ -483,15 +501,15 @@ impl<F: Format + ?Sized> Receiver for DebugReceiver<'_, '_, '_, F> {
 
     #[inline]
     fn str(&mut self, value: &str) {
-        struct StrEntry<'a, F: ?Sized>(&'a str, PhantomData<F>);
+        struct StrEntry<'a, F: Format + ?Sized>(&'a str, F::State);
         impl<F: Format + ?Sized> Debug for StrEntry<'_, F> {
             #[inline]
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 f.write_str("str: ")?;
-                F::fmt_str(f, self.0)
+                F::fmt_str(f, self.0, self.1)
             }
         }
-        self.set.entry(&StrEntry::<F>(value, PhantomData));
+        self.set.entry(&StrEntry::<F>(value, self.state));
     }
 
     #[inline]
@@ -501,15 +519,15 @@ impl<F: Format + ?Sized> Receiver for DebugReceiver<'_, '_, '_, F> {
 
     #[inline]
     fn bytes(&mut self, value: &[u8]) {
-        struct BytesEntry<'a, F: ?Sized>(&'a [u8], PhantomData<F>);
+        struct BytesEntry<'a, F: Format + ?Sized>(&'a [u8], F::State);
         impl<F: Format + ?Sized> Debug for BytesEntry<'_, F> {
             #[inline]
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 f.write_str("bytes: ")?;
-                F::fmt_bytes(f, self.0)
+                F::fmt_bytes(f, self.0, self.1)
             }
         }
-        self.set.entry(&BytesEntry::<F>(value, PhantomData));
+        self.set.entry(&BytesEntry::<F>(value, self.state));
     }
 
     #[inline]
