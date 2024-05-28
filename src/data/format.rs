@@ -3,14 +3,11 @@ use std::{
     marker::PhantomData,
 };
 
-use crate::rr::{Receiver, Request};
 use crate::{
     data::{BoxedData, Data},
     links::Link,
-};
-use crate::{
     links::{Links, MaybeKeyed, Result, CONTINUE},
-    rr::meta,
+    rr::{meta, Receiver, Request},
 };
 
 use super::DataExt;
@@ -197,8 +194,8 @@ pub trait Format {
     fn fmt_value_entries(set: &mut fmt::DebugSet, data: &(impl Data + ?Sized), state: Self::State) {
         let mut receiver = DebugReceiver::<Self> { set, state };
 
-        let request = Request::new(&mut receiver as &mut dyn Receiver);
-        data.provide_value(request);
+        let mut request = Request::new_erased(&mut receiver);
+        data.provide_value(&mut request);
     }
 
     #[allow(unused_variables)]
@@ -255,8 +252,11 @@ impl<const SERIAL: bool, const MAX_DEPTH: u16, const VERBOSITY: i8> Format
         state: Self::State,
     ) -> fmt::Result {
         use crate::value::{AllValues, Value};
-        let mut values = AllValues::default();
-        data.provide_value(Request::new(&mut values as &mut dyn Receiver));
+
+        let mut request = Request::<AllValues>::default();
+        data.provide_value(&mut request.as_erased());
+
+        let mut values = request.take();
 
         if values.is_empty() {
             return Self::fmt_empty(f, state);
@@ -553,8 +553,8 @@ impl<F: Format + ?Sized> Receiver for DebugReceiver<'_, '_, '_, F> {
     }
 
     #[inline]
-    fn accepts<T: 'static + ?Sized>() -> bool {
-        true
+    fn accepting() -> impl crate::rr::TypeSet + 'static {
+        crate::rr::typeset::All
     }
 }
 pub trait Ellipsable {

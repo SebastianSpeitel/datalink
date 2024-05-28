@@ -2,15 +2,15 @@ use ::toml::{Table, Value as Val};
 
 use crate::data::Data;
 use crate::links::{LinkError, Links, LinksExt};
-use crate::rr::prelude::{Provided, Req, Request};
+use crate::rr::prelude::{Provided, Query, Request};
 
 impl Data for Val {
     #[inline]
-    fn provide_value(&self, mut request: Request) {
-        self.provide_requested(&mut request).debug_assert_provided();
+    fn provide_value(&self, request: &mut Request) {
+        self.provide_requested(request).debug_assert_provided();
     }
     #[inline]
-    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
+    fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
         match self {
             Val::String(s) => request.provide_str(s),
             Val::Integer(i) => request.provide_ref(i),
@@ -18,7 +18,7 @@ impl Data for Val {
             Val::Boolean(b) => request.provide_ref(b),
             Val::Datetime(dt) => {
                 request.provide_ref(dt);
-                if R::requests::<String>() {
+                if request.requests::<String>() {
                     request.provide_str_owned(dt.to_string());
                 }
             }

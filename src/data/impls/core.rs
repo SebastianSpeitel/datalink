@@ -4,11 +4,11 @@ use crate::rr::{meta, prelude::*};
 
 impl Data for () {
     #[inline]
-    fn provide_value(&self, mut request: Request) {
-        self.provide_requested(&mut request).debug_assert_provided();
+    fn provide_value(&self, request: &mut Request) {
+        self.provide_requested(request).debug_assert_provided();
     }
     #[inline]
-    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
+    fn provide_requested<R: Query>(&self, request: &mut Request<R>) -> impl Provided {
         request.provide_owned(meta::IsUnit);
     }
 }
@@ -17,11 +17,11 @@ macro_rules! impl_copy_data {
     ($ty:ty,$fn:ident) => {
         impl Data for $ty {
             #[inline]
-            fn provide_value(&self, mut request: Request) {
-                self.provide_requested(&mut request).debug_assert_provided();
+            fn provide_value(&self, request: &mut Request) {
+                self.provide_requested(request).debug_assert_provided();
             }
             #[inline]
-            fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
+            fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
                 request.$fn(*self);
             }
         }
@@ -45,57 +45,57 @@ impl_copy_data!(char, provide_char);
 
 impl Data for str {
     #[inline]
-    fn provide_value(&self, mut request: Request) {
+    fn provide_value(&self, request: &mut Request) {
         request.provide_str(self);
     }
     #[inline]
-    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
+    fn provide_requested<R: Query>(&self, request: &mut Request<R>) -> impl Provided {
         request.provide_str(self);
     }
 }
 
 impl Data for &str {
     #[inline]
-    fn provide_value(&self, mut request: Request) {
+    fn provide_value(&self, request: &mut Request) {
         request.provide_str(self);
     }
     #[inline]
-    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
+    fn provide_requested<R: Query>(&self, request: &mut Request<R>) -> impl Provided {
         request.provide_str(self);
     }
 }
 
 impl Data for [u8] {
     #[inline]
-    fn provide_value(&self, mut request: Request) {
+    fn provide_value(&self, request: &mut Request) {
         request.provide_bytes(self);
     }
     #[inline]
-    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
+    fn provide_requested<R: Query>(&self, request: &mut Request<R>) -> impl Provided {
         request.provide_bytes(self);
     }
 }
 
 impl Data for &[u8] {
     #[inline]
-    fn provide_value(&self, mut request: Request) {
+    fn provide_value(&self, request: &mut Request) {
         request.provide_bytes(self);
     }
     #[inline]
-    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
+    fn provide_requested<R: Query>(&self, request: &mut Request<R>) -> impl Provided {
         request.provide_bytes(self);
     }
 }
 
 impl Data for usize {
     #[inline]
-    fn provide_value(&self, mut request: Request) {
-        self.provide_requested(&mut request).debug_assert_provided();
+    fn provide_value(&self, request: &mut Request) {
+        self.provide_requested(request).debug_assert_provided();
     }
 
     #[allow(clippy::cast_possible_truncation)]
     #[inline]
-    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
+    fn provide_requested<R: Query>(&self, request: &mut Request<R>) -> impl Provided {
         if usize::BITS >= u128::BITS {
             request.provide_u128(*self as u128);
         }
@@ -116,13 +116,13 @@ impl Data for usize {
 
 impl Data for isize {
     #[inline]
-    fn provide_value(&self, mut request: Request) {
-        self.provide_requested(&mut request).debug_assert_provided();
+    fn provide_value(&self, request: &mut Request) {
+        self.provide_requested(request).debug_assert_provided();
     }
 
     #[allow(clippy::cast_possible_truncation)]
     #[inline]
-    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
+    fn provide_requested<R: Query>(&self, request: &mut Request<R>) -> impl Provided {
         if isize::BITS >= i128::BITS {
             request.provide_i128(*self as i128);
         }
@@ -145,13 +145,16 @@ macro_rules! impl_nonzero_data {
     ($ty:ty) => {
         impl Data for $ty {
             #[inline]
-            fn provide_value(&self, mut request: Request) {
-                if !self.provide_requested(&mut request).was_provided() {
+            fn provide_value(&self, request: &mut Request) {
+                if !self.provide_requested(request).was_provided() {
                     self.get().provide_value(request);
                 }
             }
             #[inline]
-            fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
+            fn provide_requested<Q: crate::rr::Query>(
+                &self,
+                request: &mut Request<Q>,
+            ) -> impl Provided {
                 self.get().provide_requested(request).was_provided()
             }
         }
@@ -174,15 +177,15 @@ impl_nonzero_data!(core::num::NonZeroIsize);
 #[warn(clippy::missing_trait_methods)]
 impl<D: Data> Data for Option<D> {
     #[inline]
-    fn provide_value(&self, mut request: Request) {
-        if !self.provide_requested(&mut request).was_provided() {
+    fn provide_value(&self, request: &mut Request) {
+        if !self.provide_requested(request).was_provided() {
             if let Some(d) = self {
                 d.provide_value(request);
             }
         }
     }
     #[inline]
-    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
+    fn provide_requested<R: Query>(&self, request: &mut Request<R>) -> impl Provided {
         if let Some(d) = self {
             request.provide_owned(meta::IsSome);
             d.provide_requested(request).was_provided()
@@ -228,8 +231,8 @@ where
     D::Owned: Data,
 {
     #[inline]
-    fn provide_value(&self, mut request: Request) {
-        if !self.provide_requested(&mut request).was_provided() {
+    fn provide_value(&self, request: &mut Request) {
+        if !self.provide_requested(request).was_provided() {
             match self {
                 Self::Borrowed(data) => data.provide_value(request),
                 Self::Owned(data) => data.provide_value(request),
@@ -238,7 +241,7 @@ where
     }
 
     #[inline]
-    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
+    fn provide_requested<R: Query>(&self, request: &mut Request<R>) -> impl Provided {
         match self {
             Self::Borrowed(data) => {
                 request.provide_owned(meta::IsBorrowed);
@@ -300,11 +303,11 @@ where
 #[warn(clippy::missing_trait_methods)]
 impl<D: Data> Data for core::cell::OnceCell<D> {
     #[inline]
-    fn provide_value(&self, request: Request) {
+    fn provide_value(&self, request: &mut Request) {
         self.get().provide_value(request);
     }
     #[inline]
-    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
+    fn provide_requested<R: Query>(&self, request: &mut Request<R>) -> impl Provided {
         self.get().provide_requested(request).was_provided()
     }
     #[inline]
@@ -328,11 +331,11 @@ impl<D: Data> Data for core::cell::OnceCell<D> {
 
 impl<D: Data> Data for std::sync::OnceLock<D> {
     #[inline]
-    fn provide_value(&self, request: Request) {
+    fn provide_value(&self, request: &mut Request) {
         self.get().provide_value(request);
     }
     #[inline]
-    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
+    fn provide_requested<R: Query>(&self, request: &mut Request<R>) -> impl Provided {
         self.get().provide_requested(request).was_provided()
     }
     #[inline]

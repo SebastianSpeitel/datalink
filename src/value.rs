@@ -1,7 +1,8 @@
 use std::any::Any;
 
-pub use crate::rr::prelude::{Provided, Receiver as ValueReceiver, Req, Request as ValueRequest};
-pub use crate::rr::Unknown;
+pub use crate::rr::prelude::{
+    Provided, Query as ValueQuery, Receiver as ValueReceiver, Request as ValueRequest,
+};
 
 #[derive(Debug)]
 pub enum Value {
@@ -149,14 +150,14 @@ impl ValueReceiver for Value {
     }
 
     #[inline]
-    fn accepts<T: 'static + ?Sized>() -> bool {
+    fn accepting() -> impl crate::rr::typeset::TypeSet + 'static {
         // Todo: check if the type is accepted
-        true
+        crate::rr::typeset::All
     }
 }
 
 #[inline]
-fn provide_value<R: Req>(value: &Value, request: &mut ValueRequest<R>) {
+fn provide_value<R: ValueQuery>(value: &Value, request: &mut ValueRequest<R>) {
     match value {
         Value::Bool(v) => request.provide_ref(v),
         Value::U8(v) => request.provide_ref(v),
@@ -182,11 +183,11 @@ fn provide_value<R: Req>(value: &Value, request: &mut ValueRequest<R>) {
 
 impl crate::Data for Value {
     #[inline]
-    fn provide_value(&self, mut request: ValueRequest) {
-        provide_value(self, &mut request);
+    fn provide_value(&self, request: &mut ValueRequest) {
+        self.provide_requested(request).debug_assert_provided();
     }
     #[inline]
-    fn provide_requested<R: Req>(&self, request: &mut ValueRequest<R>) -> impl Provided {
+    fn provide_requested<Q: ValueQuery>(&self, request: &mut ValueRequest<Q>) -> impl Provided {
         provide_value(self, request);
     }
 }
@@ -310,22 +311,22 @@ impl ValueReceiver for AllValues {
         // Can't be stored as Value
     }
     #[inline]
-    fn accepts<T: 'static + ?Sized>() -> bool {
-        Value::accepts::<T>()
+    fn accepting() -> impl crate::rr::typeset::TypeSet + 'static {
+        Value::accepting()
     }
 }
 
 impl crate::Data for AllValues {
     #[inline]
-    fn provide_value(&self, mut request: ValueRequest) {
-        for value in &self.0 {
-            provide_value(value, &mut request);
+    fn provide_value(&self, request: &mut ValueRequest) {
+        for val in &self.0 {
+            val.provide_value(request);
         }
     }
     #[inline]
-    fn provide_requested<R: Req>(&self, request: &mut ValueRequest<R>) -> impl Provided {
-        for value in &self.0 {
-            provide_value(value, request);
+    fn provide_requested<Q: ValueQuery>(&self, request: &mut ValueRequest<Q>) -> impl Provided {
+        for val in &self.0 {
+            val.provide_requested(request).debug_assert_provided();
         }
     }
 }
@@ -340,10 +341,6 @@ impl AllValues {
             None
         }
     }
-}
-
-impl Req for AllValues {
-    type Receiver<'d> = &'d mut AllValues;
 }
 
 impl core::ops::Deref for AllValues {

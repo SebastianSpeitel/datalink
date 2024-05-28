@@ -85,13 +85,13 @@ impl<D: Data + ?Sized, T: Borrow<D>> AsRef<D> for Fixed<D, T> {
 #[warn(clippy::missing_trait_methods)]
 impl<D: Data + ?Sized, T: Borrow<D>> Data for Fixed<D, T> {
     #[inline]
-    fn provide_value(&self, request: Request) {
+    fn provide_value(&self, request: &mut Request) {
         self.as_ref().provide_value(request);
     }
     #[inline]
-    fn provide_requested<R: crate::rr::Req>(
+    fn provide_requested<Q: crate::rr::Query>(
         &self,
-        _request: &mut Request<R>,
+        _request: &mut Request<Q>,
     ) -> impl super::Provided
     where
         Self: Sized,

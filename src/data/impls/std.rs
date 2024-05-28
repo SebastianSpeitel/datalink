@@ -2,16 +2,16 @@ use ::std::collections::HashMap;
 
 use crate::data::{Data, Provided};
 use crate::links::{LinkError, Links, LinksExt};
-use crate::rr::{Req, Request};
+use crate::rr::{Query, Request};
 
 impl Data for String {
     #[inline]
-    fn provide_value(&self, mut request: Request) {
-        self.provide_requested(&mut request).debug_assert_provided();
+    fn provide_value(&self, request: &mut Request) {
+        self.provide_requested(request).debug_assert_provided();
     }
 
     #[inline]
-    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
+    fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
         request.provide_str(self);
     }
 }
@@ -23,15 +23,15 @@ mod path {
 
     impl Data for PathBuf {
         #[inline]
-        fn provide_value(&self, mut request: Request) {
-            self.provide_requested(&mut request).debug_assert_provided();
+        fn provide_value(&self, request: &mut Request) {
+            self.provide_requested(request).debug_assert_provided();
         }
 
         #[inline]
-        fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
+        fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
             request.provide_ref(self);
 
-            if R::requests::<str>() {
+            if request.requests::<&str>() {
                 request.provide_str(self.to_string_lossy().as_ref());
             }
 
@@ -42,15 +42,15 @@ mod path {
 
     impl Data for Path {
         #[inline]
-        fn provide_value(&self, mut request: Request) {
+        fn provide_value(&self, request: &mut Request) {
             request.provide_str(self.to_string_lossy().as_ref());
             #[cfg(target_os = "linux")]
             request.provide_bytes(OsStrExt::as_bytes(self.as_os_str()));
         }
 
         #[inline]
-        fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
-            if R::requests::<str>() {
+        fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
+            if request.requests::<&str>() {
                 request.provide_str(self.to_string_lossy().as_ref());
             }
 
@@ -68,15 +68,15 @@ mod ffi {
 
     impl Data for OsString {
         #[inline]
-        fn provide_value(&self, mut request: Request) {
-            self.provide_requested(&mut request).debug_assert_provided();
+        fn provide_value(&self, request: &mut Request) {
+            self.provide_requested(request).debug_assert_provided();
         }
 
         #[inline]
-        fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
+        fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
             request.provide_ref(self);
 
-            if R::requests::<str>() {
+            if request.requests::<&str>() {
                 request.provide_str(self.to_string_lossy().as_ref());
             }
 
@@ -87,15 +87,15 @@ mod ffi {
 
     impl Data for OsStr {
         #[inline]
-        fn provide_value(&self, mut request: Request) {
+        fn provide_value(&self, request: &mut Request) {
             request.provide_str(self.to_string_lossy().as_ref());
             #[cfg(target_os = "linux")]
             request.provide_bytes(OsStrExt::as_bytes(self));
         }
 
         #[inline]
-        fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
-            if R::requests::<str>() {
+        fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
+            if request.requests::<&str>() {
                 request.provide_str(self.to_string_lossy().as_ref());
             }
 
@@ -119,14 +119,14 @@ mod net {
 
     impl Data for net::Ipv4Addr {
         #[inline]
-        fn provide_value(&self, mut request: Request) {
-            self.provide_requested(&mut request).debug_assert_provided();
+        fn provide_value(&self, request: &mut Request) {
+            self.provide_requested(request).debug_assert_provided();
         }
 
         #[inline]
-        fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
+        fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
             request.provide_ref(self);
-            if R::requests::<String>() {
+            if request.requests::<String>() {
                 request.provide_str_owned(self.to_string());
             }
         }
@@ -134,14 +134,14 @@ mod net {
 
     impl Data for net::Ipv6Addr {
         #[inline]
-        fn provide_value(&self, mut request: Request) {
-            self.provide_requested(&mut request).debug_assert_provided();
+        fn provide_value(&self, request: &mut Request) {
+            self.provide_requested(request).debug_assert_provided();
         }
 
         #[inline]
-        fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
+        fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
             request.provide_ref(self);
-            if R::requests::<String>() {
+            if request.requests::<String>() {
                 request.provide_str_owned(self.to_string());
             }
         }
@@ -149,12 +149,12 @@ mod net {
 
     impl Data for net::IpAddr {
         #[inline]
-        fn provide_value(&self, mut request: Request) {
-            self.provide_requested(&mut request).debug_assert_provided();
+        fn provide_value(&self, request: &mut Request) {
+            self.provide_requested(request).debug_assert_provided();
         }
 
         #[inline]
-        fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
+        fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
             match self {
                 net::IpAddr::V4(ip) => ip.provide_requested(request).was_provided(),
                 net::IpAddr::V6(ip) => ip.provide_requested(request).was_provided(),
@@ -172,15 +172,15 @@ mod net {
 
     impl Data for net::SocketAddrV4 {
         #[inline]
-        fn provide_value(&self, mut request: Request) {
-            self.provide_requested(&mut request).debug_assert_provided();
+        fn provide_value(&self, request: &mut Request) {
+            self.provide_requested(request).debug_assert_provided();
         }
 
         #[inline]
-        fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
+        fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
             request.provide_ref(self);
 
-            if R::requests::<String>() {
+            if request.requests::<String>() {
                 request.provide_str_owned(self.to_string());
             }
         }
@@ -196,15 +196,15 @@ mod net {
 
     impl Data for net::SocketAddrV6 {
         #[inline]
-        fn provide_value(&self, mut request: Request) {
-            self.provide_requested(&mut request).debug_assert_provided();
+        fn provide_value(&self, request: &mut Request) {
+            self.provide_requested(request).debug_assert_provided();
         }
 
         #[inline]
-        fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
+        fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
             request.provide_ref(self);
 
-            if R::requests::<String>() {
+            if request.requests::<String>() {
                 request.provide_str_owned(self.to_string());
             }
         }
@@ -220,12 +220,12 @@ mod net {
 
     impl Data for net::SocketAddr {
         #[inline]
-        fn provide_value(&self, mut request: Request) {
-            self.provide_requested(&mut request).debug_assert_provided();
+        fn provide_value(&self, request: &mut Request) {
+            self.provide_requested(request).debug_assert_provided();
         }
 
         #[inline]
-        fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
+        fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
             match self {
                 net::SocketAddr::V4(addr) => addr.provide_requested(request).was_provided(),
                 net::SocketAddr::V6(addr) => addr.provide_requested(request).was_provided(),
