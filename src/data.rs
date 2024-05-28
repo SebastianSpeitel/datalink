@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use crate::{
     links::{LinkError, Links, LinksExt},
-    value::{Provided, Req, ValueRequest},
+    value::{Provided, ValueQuery, ValueRequest},
 };
 
 #[cfg(feature = "unique")]
@@ -31,7 +31,7 @@ pub type BoxedData = Box<dyn Data>;
 pub trait Data {
     #[allow(unused_variables)]
     #[inline]
-    fn provide_value(&self, request: ValueRequest) {}
+    fn provide_value(&self, request: &mut ValueRequest) {}
 
     #[allow(unused_variables)]
     #[inline]
@@ -63,7 +63,7 @@ pub trait Data {
     #[inline]
     #[must_use]
     #[allow(unused_variables)]
-    fn provide_requested<R: Req>(&self, request: &mut ValueRequest<R>) -> impl Provided
+    fn provide_requested<Q: ValueQuery>(&self, request: &mut ValueRequest<Q>) -> impl Provided
     where
         Self: Sized,
     {

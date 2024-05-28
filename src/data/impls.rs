@@ -13,13 +13,13 @@ macro_rules! impl_deref {
     ($ty:ty) => {
         impl<D: $crate::data::Data> $crate::data::Data for $ty {
             #[inline]
-            fn provide_value(&self, request: $crate::rr::Request) {
+            fn provide_value(&self, request: &mut $crate::rr::Request) {
                 (**self).provide_value(request)
             }
             #[inline]
-            fn provide_requested<R: $crate::rr::Req>(
+            fn provide_requested<Q: $crate::rr::Query>(
                 &self,
-                request: &mut $crate::rr::Request<R>,
+                request: &mut $crate::rr::Request<Q>,
             ) -> impl $crate::data::Provided {
                 (**self).provide_requested(request)
             }
@@ -69,7 +69,7 @@ macro_rules! impl_dyn {
     ($ty:ty) => {
         impl Data for $ty {
             #[inline]
-            fn provide_value(&self, request: crate::rr::Request) {
+            fn provide_value(&self, request: &mut crate::rr::Request) {
                 (**self).provide_value(request);
             }
             #[inline]

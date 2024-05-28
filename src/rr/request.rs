@@ -1,5 +1,5 @@
+use super::query::Query;
 use super::Receiver;
-use super::Req;
 use crate::type_eq;
 use core::any::Any;
 
@@ -27,45 +27,74 @@ macro_rules! provide_fn {
     ($m:ident, $ty:ty, $m_r:ident) => {
         #[inline]
         pub fn $m(&mut self, value: $ty) {
-            if !R::requests::<$ty>() {
+            if !self.requests::<$ty>() {
                 return;
             }
-            self.0.$m_r(value);
+            Q::get_receiver(&mut self.0).$m_r(value);
         }
     };
 }
 
 #[derive(Debug)]
-pub struct Request<'d, T: Req + ?Sized = super::Unknown>(pub(crate) T::Receiver<'d>);
-impl<'d, R: Req> Request<'d, R> {
+pub struct Request<'d, Q: Query + ?Sized = super::erased::Erased<'d>>(
+    Q::Request,
+    core::marker::PhantomData<&'d ()>,
+);
+
+impl<Q: Query + ?Sized> Request<'_, Q> {
     #[inline]
-    pub const fn new(receiver: R::Receiver<'d>) -> Self {
-        Self(receiver)
+    pub const fn new(request: Q::Request) -> Self {
+        Self(request, core::marker::PhantomData)
     }
 
     #[inline]
-    pub fn provide_ref<T: Any>(&mut self, value: &T) {
-        if !R::requests::<T>() {
+    pub fn take(self) -> Q::Request {
+        self.0
+    }
+
+    #[inline]
+    pub fn requesting(&self) -> Q::Requesting<'_> {
+        Q::get_requesting(&self.0)
+    }
+
+    #[inline]
+    pub fn requests<T: 'static + ?Sized>(&self) -> bool {
+        use super::TypeSet;
+        self.requesting().contains_type::<T>()
+    }
+
+    #[inline]
+    pub fn requests_type_of<T: 'static>(&self, value: &T) -> bool {
+        use super::TypeSet;
+        self.requesting().contains_type_of(value)
+    }
+
+    #[inline]
+    pub fn provide_ref<T: 'static>(&mut self, value: &T) {
+        if !self.requests_type_of(value) {
             return;
         }
-        provide_typed!(self.0, T, bool, bool, value);
-        provide_typed!(self.0, T, u8, u8, value);
-        provide_typed!(self.0, T, i8, i8, value);
-        provide_typed!(self.0, T, u16, u16, value);
-        provide_typed!(self.0, T, i16, i16, value);
-        provide_typed!(self.0, T, u32, u32, value);
-        provide_typed!(self.0, T, i32, i32, value);
-        provide_typed!(self.0, T, u64, u64, value);
-        provide_typed!(self.0, T, i64, i64, value);
-        provide_typed!(self.0, T, u128, u128, value);
-        provide_typed!(self.0, T, i128, i128, value);
-        provide_typed!(self.0, T, f32, f32, value);
-        provide_typed!(self.0, T, f64, f64, value);
-        provide_typed!(self.0, T, char, char, value);
+
+        let mut rec = Q::get_receiver(&mut self.0);
+
+        provide_typed!(rec, T, bool, bool, value);
+        provide_typed!(rec, T, u8, u8, value);
+        provide_typed!(rec, T, i8, i8, value);
+        provide_typed!(rec, T, u16, u16, value);
+        provide_typed!(rec, T, i16, i16, value);
+        provide_typed!(rec, T, u32, u32, value);
+        provide_typed!(rec, T, i32, i32, value);
+        provide_typed!(rec, T, u64, u64, value);
+        provide_typed!(rec, T, i64, i64, value);
+        provide_typed!(rec, T, u128, u128, value);
+        provide_typed!(rec, T, i128, i128, value);
+        provide_typed!(rec, T, f32, f32, value);
+        provide_typed!(rec, T, f64, f64, value);
+        provide_typed!(rec, T, char, char, value);
 
         if type_eq!(T, &str) {
             unsafe {
-                self.0.str(downcast_ref_unchecked::<&str>(value));
+                rec.str(downcast_ref_unchecked::<&str>(value));
             }
             return;
         }
@@ -73,14 +102,14 @@ impl<'d, R: Req> Request<'d, R> {
         if type_eq!(T, String) {
             // this sends a &str but only checked if String was requested
             unsafe {
-                self.0.str(downcast_ref_unchecked::<String>(value));
+                rec.str(downcast_ref_unchecked::<String>(value));
             }
             return;
         }
 
         if type_eq!(T, &[u8]) {
             unsafe {
-                self.0.bytes(downcast_ref_unchecked::<&[u8]>(value));
+                rec.bytes(downcast_ref_unchecked::<&[u8]>(value));
             }
             return;
         }
@@ -88,64 +117,64 @@ impl<'d, R: Req> Request<'d, R> {
         if type_eq!(T, Vec<u8>) {
             // this sends a &[u8] but only checked if Vec<u8> was requested
             unsafe {
-                self.0.bytes(downcast_ref_unchecked::<Vec<u8>>(value));
+                rec.bytes(downcast_ref_unchecked::<Vec<u8>>(value));
             }
             return;
         }
 
-        self.0.other_ref(value);
+        rec.other_ref(value);
     }
 
     #[inline]
-    pub fn provide_owned<T1: Any>(&mut self, value: T1) {
-        if !R::requests::<T1>() {
+    pub fn provide_owned<T: 'static>(&mut self, value: T) {
+        if !self.requests_type_of(&value) {
             return;
         }
 
-        provide_typed!(self.0, T1, bool, bool, &value);
-        provide_typed!(self.0, T1, u8, u8, &value);
-        provide_typed!(self.0, T1, i8, i8, &value);
-        provide_typed!(self.0, T1, u16, u16, &value);
-        provide_typed!(self.0, T1, i16, i16, &value);
-        provide_typed!(self.0, T1, u32, u32, &value);
-        provide_typed!(self.0, T1, i32, i32, &value);
-        provide_typed!(self.0, T1, u64, u64, &value);
-        provide_typed!(self.0, T1, i64, i64, &value);
-        provide_typed!(self.0, T1, u128, u128, &value);
-        provide_typed!(self.0, T1, i128, i128, &value);
-        provide_typed!(self.0, T1, f32, f32, &value);
-        provide_typed!(self.0, T1, f64, f64, &value);
-        provide_typed!(self.0, T1, char, char, &value);
+        let mut rec = Q::get_receiver(&mut self.0);
 
-        if type_eq!(T1, &str) {
-            unsafe {
-                self.0.str(downcast_ref_unchecked::<&str>(&value));
-            }
-            return;
-        }
-        if type_eq!(T1, String) {
-            unsafe {
-                self.0
-                    .str_owned(downcast_ref_unchecked::<String>(&value).to_owned());
-            }
-            return;
-        }
+        provide_typed!(rec, T, bool, bool, &value);
+        provide_typed!(rec, T, u8, u8, &value);
+        provide_typed!(rec, T, i8, i8, &value);
+        provide_typed!(rec, T, u16, u16, &value);
+        provide_typed!(rec, T, i16, i16, &value);
+        provide_typed!(rec, T, u32, u32, &value);
+        provide_typed!(rec, T, i32, i32, &value);
+        provide_typed!(rec, T, u64, u64, &value);
+        provide_typed!(rec, T, i64, i64, &value);
+        provide_typed!(rec, T, u128, u128, &value);
+        provide_typed!(rec, T, i128, i128, &value);
+        provide_typed!(rec, T, f32, f32, &value);
+        provide_typed!(rec, T, f64, f64, &value);
+        provide_typed!(rec, T, char, char, &value);
 
-        if type_eq!(T1, &[u8]) {
+        if type_eq!(T, &str) {
             unsafe {
-                self.0.bytes(downcast_ref_unchecked::<&[u8]>(&value));
+                rec.str(downcast_ref_unchecked::<&str>(&value));
             }
             return;
         }
-        if type_eq!(T1, Vec<u8>) {
+        if type_eq!(T, String) {
             unsafe {
-                self.0
-                    .bytes_owned(downcast_ref_unchecked::<Vec<u8>>(&value).to_owned());
+                rec.str_owned(downcast_ref_unchecked::<String>(&value).to_owned());
             }
             return;
         }
 
-        self.0.other_boxed(Box::new(value));
+        if type_eq!(T, &[u8]) {
+            unsafe {
+                rec.bytes(downcast_ref_unchecked::<&[u8]>(&value));
+            }
+            return;
+        }
+        if type_eq!(T, Vec<u8>) {
+            unsafe {
+                rec.bytes_owned(downcast_ref_unchecked::<Vec<u8>>(&value).to_owned());
+            }
+            return;
+        }
+
+        rec.other_boxed(Box::new(value));
     }
 
     provide_fn!(provide_bool, bool, bool);
@@ -167,29 +196,44 @@ impl<'d, R: Req> Request<'d, R> {
 
     #[inline]
     pub fn provide_str_owned(&mut self, value: String) {
-        if R::requests::<String>() {
-            self.0.str_owned(value);
-        } else if R::requests::<&str>() {
-            self.0.str(value.as_str());
+        if self.requests::<String>() {
+            Q::get_receiver(&mut self.0).str_owned(value);
+        } else if self.requests::<&str>() {
+            Q::get_receiver(&mut self.0).str(value.as_str());
         }
     }
 
     #[inline]
     pub fn provide_bytes_owned(&mut self, value: Vec<u8>) {
-        if R::requests::<Vec<u8>>() {
-            self.0.bytes_owned(value);
-        } else if R::requests::<&[u8]>() {
-            self.0.bytes(value.as_slice());
+        if self.requests::<Vec<u8>>() {
+            Q::get_receiver(&mut self.0).bytes_owned(value);
+        } else if self.requests::<&[u8]>() {
+            Q::get_receiver(&mut self.0).bytes(value.as_slice());
         }
+    }
+
+    #[inline]
+    pub fn as_erased(&mut self) -> Request<'_, super::erased::Erased>
+    where
+        Q::Request: Receiver,
+    {
+        Request::new_erased(&mut self.0)
     }
 }
 
-impl<'d, T: Req> Default for Request<'d, T>
+impl<'d> Request<'d, super::erased::Erased<'d>> {
+    #[inline]
+    pub fn new_erased<R: Receiver>(receiver: &'d mut R) -> Self {
+        Self::new(receiver as _)
+    }
+}
+
+impl<'d, Q: Query + ?Sized> Default for Request<'d, Q>
 where
-    T::Receiver<'d>: Default,
+    Q::Request: Default,
 {
     #[inline]
     fn default() -> Self {
-        Self(Default::default())
+        Self::new(Q::Request::default())
     }
 }

@@ -4,7 +4,7 @@ use crate::data::BoxedData;
 use crate::data::{format, Data, Provided};
 use crate::links::{LinkError, Links, Result};
 use crate::query::Query;
-use crate::rr::{Receiver, RefOption, Req, Request};
+use crate::rr::{Receiver, Request};
 
 pub trait DataExt: Data {
     #[inline]
@@ -12,17 +12,15 @@ pub trait DataExt: Data {
     fn as_<T>(&self) -> Option<T>
     where
         Self: Sized,
-        RefOption<T>: for<'d> Req<Receiver<'d> = &'d mut Option<T>>,
-        Option<T>: Receiver,
+        Option<T>: Receiver + 'static,
     {
-        let mut value = None;
-        let mut request = Request::<RefOption<T>>::new(&mut value);
-        if self.provide_requested(&mut request).was_provided() {
-            return value;
+        let mut request = Request::<Option<T>>::default();
+
+        if !self.provide_requested(&mut request).was_provided() {
+            self.provide_value(&mut request.as_erased());
         }
-        let request = Request::new(&mut value as &mut dyn Receiver);
-        self.provide_value(request);
-        value
+
+        request.take()
     }
 
     #[inline]
@@ -252,42 +250,37 @@ pub trait DataExt: Data {
                 }
             }
             #[inline]
-            fn accepts<T: 'static + ?Sized>() -> bool {
-                use core::any::TypeId;
-                let id = TypeId::of::<T>();
-
-                id == TypeId::of::<bool>()
-                    || id == TypeId::of::<f32>()
-                    || id == TypeId::of::<f64>()
-                    || id == TypeId::of::<i128>()
-                    || id == TypeId::of::<i16>()
-                    || id == TypeId::of::<i32>()
-                    || id == TypeId::of::<i64>()
-                    || id == TypeId::of::<i8>()
-                    || id == TypeId::of::<u16>()
-                    || id == TypeId::of::<u32>()
-                    || id == TypeId::of::<u64>()
-                    || id == TypeId::of::<u8>()
-                    || id == TypeId::of::<u128>()
-                    || id == TypeId::of::<char>()
-                    || id == TypeId::of::<&str>()
-                    || id == TypeId::of::<String>()
+            fn accepting() -> impl crate::rr::typeset::TypeSet + 'static
+            where
+                Self: Sized,
+            {
+                crate::rr::typeset::AnyOf::<(
+                    bool,
+                    f32,
+                    f64,
+                    i128,
+                    i16,
+                    i32,
+                    i64,
+                    i8,
+                    u16,
+                    u32,
+                    u64,
+                    u8,
+                    u128,
+                    char,
+                    &str,
+                    String,
+                )>::default()
             }
         }
 
-        impl crate::rr::Req for Number {
-            type Receiver<'d> = &'d mut Number;
+        let mut request = Request::<Number>::default();
+        if !self.provide_requested(&mut request).was_provided() {
+            self.provide_value(&mut request.as_erased());
         }
 
-        let mut num = Number::default();
-        if !self
-            .provide_requested::<Number>(&mut Request::new(&mut num))
-            .was_provided()
-        {
-            self.provide_value(Request::new(&mut num as &mut dyn Receiver));
-        }
-
-        num.0
+        request.take().0
     }
 
     #[inline]
@@ -408,16 +401,13 @@ pub trait DataExt: Data {
     where
         Self: Sized,
     {
-        let mut values = crate::value::AllValues::default();
-        if self
-            .provide_requested::<crate::value::AllValues>(&mut Request::new(&mut values))
-            .was_provided()
-        {
-            return values;
+        use crate::value::AllValues;
+        let mut request = Request::<AllValues>::default();
+        if !self.provide_requested(&mut request).was_provided() {
+            self.provide_value(&mut request.as_erased());
         }
-        let mut values = crate::value::AllValues::default();
-        self.provide_value(Request::new(&mut values as &mut dyn Receiver));
-        values
+
+        request.take()
     }
 
     #[inline]

@@ -155,116 +155,99 @@ pub trait Receiver {
 
     #[inline]
     #[must_use]
-    fn accepts<T: 'static + ?Sized>() -> bool
+    fn accepting() -> impl super::TypeSet + 'static
     where
         Self: Sized,
     {
-        true
-    }
-}
-
-macro_rules! receiver_deref_fns {
-    () => {
-        #[inline]
-        fn bool(&mut self, value: bool) {
-            (**self).bool(value);
-        }
-        #[inline]
-        fn i8(&mut self, value: i8) {
-            (**self).i8(value);
-        }
-        #[inline]
-        fn u8(&mut self, value: u8) {
-            (**self).u8(value);
-        }
-        #[inline]
-        fn i16(&mut self, value: i16) {
-            (**self).i16(value);
-        }
-        #[inline]
-        fn u16(&mut self, value: u16) {
-            (**self).u16(value);
-        }
-        #[inline]
-        fn i32(&mut self, value: i32) {
-            (**self).i32(value);
-        }
-        #[inline]
-        fn u32(&mut self, value: u32) {
-            (**self).u32(value);
-        }
-        #[inline]
-        fn i64(&mut self, value: i64) {
-            (**self).i64(value);
-        }
-        #[inline]
-        fn u64(&mut self, value: u64) {
-            (**self).u64(value);
-        }
-        #[inline]
-        fn i128(&mut self, value: i128) {
-            (**self).i128(value);
-        }
-        #[inline]
-        fn u128(&mut self, value: u128) {
-            (**self).u128(value);
-        }
-        #[inline]
-        fn f32(&mut self, value: f32) {
-            (**self).f32(value);
-        }
-        #[inline]
-        fn f64(&mut self, value: f64) {
-            (**self).f64(value);
-        }
-        #[inline]
-        fn char(&mut self, value: char) {
-            (**self).char(value);
-        }
-        #[inline]
-        fn str(&mut self, value: &str) {
-            (**self).str(value);
-        }
-        #[inline]
-        fn str_owned(&mut self, value: String) {
-            (**self).str_owned(value);
-        }
-        #[inline]
-        fn bytes(&mut self, value: &[u8]) {
-            (**self).bytes(value);
-        }
-        #[inline]
-        fn bytes_owned(&mut self, value: Vec<u8>) {
-            (**self).bytes_owned(value);
-        }
-        #[inline]
-        fn other_ref(&mut self, value: &dyn Any) {
-            (**self).other_ref(value);
-        }
-        #[inline]
-        fn other_boxed(&mut self, value: Box<dyn Any>) {
-            (**self).other_boxed(value);
-        }
-    };
-}
-
-#[warn(clippy::missing_trait_methods)]
-impl Receiver for &mut dyn Receiver {
-    receiver_deref_fns!();
-
-    #[inline]
-    fn accepts<U: 'static + ?Sized>() -> bool {
-        true
+        super::typeset::All
     }
 }
 
 #[warn(clippy::missing_trait_methods)]
-impl<T: Receiver> Receiver for &mut T {
-    receiver_deref_fns!();
-
+impl<R: Receiver> Receiver for &mut R {
     #[inline]
-    fn accepts<U: Any + ?Sized>() -> bool {
-        T::accepts::<U>()
+    fn bool(&mut self, value: bool) {
+        (**self).bool(value);
+    }
+    #[inline]
+    fn i8(&mut self, value: i8) {
+        (**self).i8(value);
+    }
+    #[inline]
+    fn u8(&mut self, value: u8) {
+        (**self).u8(value);
+    }
+    #[inline]
+    fn i16(&mut self, value: i16) {
+        (**self).i16(value);
+    }
+    #[inline]
+    fn u16(&mut self, value: u16) {
+        (**self).u16(value);
+    }
+    #[inline]
+    fn i32(&mut self, value: i32) {
+        (**self).i32(value);
+    }
+    #[inline]
+    fn u32(&mut self, value: u32) {
+        (**self).u32(value);
+    }
+    #[inline]
+    fn i64(&mut self, value: i64) {
+        (**self).i64(value);
+    }
+    #[inline]
+    fn u64(&mut self, value: u64) {
+        (**self).u64(value);
+    }
+    #[inline]
+    fn i128(&mut self, value: i128) {
+        (**self).i128(value);
+    }
+    #[inline]
+    fn u128(&mut self, value: u128) {
+        (**self).u128(value);
+    }
+    #[inline]
+    fn f32(&mut self, value: f32) {
+        (**self).f32(value);
+    }
+    #[inline]
+    fn f64(&mut self, value: f64) {
+        (**self).f64(value);
+    }
+    #[inline]
+    fn char(&mut self, value: char) {
+        (**self).char(value);
+    }
+    #[inline]
+    fn str(&mut self, value: &str) {
+        (**self).str(value);
+    }
+    #[inline]
+    fn str_owned(&mut self, value: String) {
+        (**self).str_owned(value);
+    }
+    #[inline]
+    fn bytes(&mut self, value: &[u8]) {
+        (**self).bytes(value);
+    }
+    #[inline]
+    fn bytes_owned(&mut self, value: Vec<u8>) {
+        (**self).bytes_owned(value);
+    }
+    #[inline]
+    fn other_ref(&mut self, value: &dyn Any) {
+        (**self).other_ref(value);
+    }
+    #[inline]
+    fn other_boxed(&mut self, value: Box<dyn Any>) {
+        (**self).other_boxed(value);
+    }
+    #[inline]
+    fn accepting() -> impl super::TypeSet + 'static {
+        R::accepting()
     }
 }
 
@@ -276,9 +259,8 @@ macro_rules! impl_option_receiver {
                 self.replace(value);
             }
             #[inline]
-            fn accepts<U: core::any::Any + ?Sized>() -> bool {
-                use core::any::TypeId;
-                TypeId::of::<$ty>() == TypeId::of::<U>()
+            fn accepting() -> impl $crate::rr::typeset::TypeSet + 'static {
+                crate::rr::typeset::Only::<$ty>::default()
             }
         }
     };
@@ -311,13 +293,8 @@ impl Receiver for Option<String> {
     }
 
     #[inline]
-    fn accepts<T: Any + ?Sized>() -> bool
-    where
-        Self: Sized,
-    {
-        use core::any::TypeId;
-        let id = TypeId::of::<T>();
-        id == TypeId::of::<String>() || id == TypeId::of::<&str>()
+    fn accepting() -> impl super::TypeSet + 'static {
+        super::typeset::StringLike::default()
     }
 }
 
@@ -333,12 +310,21 @@ impl Receiver for Option<Vec<u8>> {
     }
 
     #[inline]
-    fn accepts<T: Any + ?Sized>() -> bool
-    where
-        Self: Sized,
-    {
-        use core::any::TypeId;
-        let id = TypeId::of::<T>();
-        id == TypeId::of::<Vec<u8>>() || id == TypeId::of::<&[u8]>()
+    fn accepting() -> impl super::TypeSet + 'static {
+        super::typeset::BytesLike::default()
+    }
+}
+
+pub trait ReceiverExt: Receiver {
+    fn accepts_id(&self, type_id: core::any::TypeId) -> bool;
+}
+
+impl<R: super::Receiver> ReceiverExt for R {
+    #[inline]
+    fn accepts_id(&self, type_id: core::any::TypeId) -> bool {
+        use super::TypeSet;
+        R::accepting()
+            .contains_id_checked(type_id)
+            .unwrap_or_default()
     }
 }

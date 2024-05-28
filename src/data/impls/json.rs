@@ -2,16 +2,16 @@ use serde_json::{Map, Number, Value as Val};
 
 use crate::data::{Data, Provided};
 use crate::links::{LinkError, Links, LinksExt};
-use crate::rr::{meta, Req, Request};
+use crate::rr::{meta, Query, Request};
 
 impl Data for Val {
     #[inline]
-    fn provide_value(&self, mut request: Request) {
-        self.provide_requested(&mut request).debug_assert_provided();
+    fn provide_value(&self, request: &mut Request) {
+        self.provide_requested(request).debug_assert_provided();
     }
 
     #[inline]
-    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
+    fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
         match self {
             Val::Null => request.provide_owned(meta::IsNull),
             Val::Bool(b) => request.provide_ref(b),
@@ -69,22 +69,22 @@ impl Data for Map<String, Val> {
 
 impl Data for Number {
     #[inline]
-    fn provide_value(&self, mut request: Request) {
-        self.provide_requested(&mut request).debug_assert_provided();
+    fn provide_value(&self, request: &mut Request) {
+        self.provide_requested(request).debug_assert_provided();
     }
     #[inline]
-    fn provide_requested<R: Req>(&self, request: &mut Request<R>) -> impl Provided {
-        if R::requests::<u64>() {
+    fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
+        if request.requests::<u64>() {
             if let Some(n) = self.as_u64() {
                 request.provide_u64(n);
             }
         }
-        if R::requests::<i64>() {
+        if request.requests::<i64>() {
             if let Some(n) = self.as_i64() {
                 request.provide_i64(n);
             }
         }
-        if R::requests::<f64>() {
+        if request.requests::<f64>() {
             if let Some(n) = self.as_f64() {
                 request.provide_f64(n);
             }
@@ -95,19 +95,17 @@ impl Data for Number {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rr::{Receiver, RefOption};
 
     #[test]
     fn number() {
         let n = Number::from(42);
         let mut r = None;
-        let req: Request = Request::new(&mut r as &mut dyn Receiver);
-        n.provide_value(req);
+        let mut req = Request::new_erased(&mut r);
+        n.provide_value(&mut req);
         assert_eq!(r, Some(42u64));
 
-        let mut r = None;
-        n.provide_requested(&mut Request::<RefOption<u64>>::new(&mut r))
-            .assert_provided();
-        assert_eq!(r, Some(42));
+        let mut r = Request::<Option<u64>>::default();
+        n.provide_requested(&mut r).assert_provided();
+        assert_eq!(r.take(), Some(42));
     }
 }

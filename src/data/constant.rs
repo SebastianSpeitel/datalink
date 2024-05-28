@@ -87,12 +87,12 @@ where
     for<'d> &'d D: Data,
 {
     #[inline]
-    fn provide_value(&self, request: Request) {
+    fn provide_value(&self, request: &mut Request) {
         (&self.0).provide_value(request);
     }
 
     #[inline]
-    fn provide_requested<R: crate::rr::Req>(&self, request: &mut Request<R>) -> impl Provided
+    fn provide_requested<Q: crate::rr::Query>(&self, request: &mut Request<Q>) -> impl Provided
     where
         Self: Sized,
     {

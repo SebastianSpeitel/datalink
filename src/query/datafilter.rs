@@ -150,7 +150,7 @@ impl<D: Data + ?Sized> Filter<D> for DataFilter {
                 searcher.0
             }
             E::Text(f) => {
-                use crate::rr::{Receiver, Req, Request};
+                use crate::rr::{Receiver, Request};
 
                 enum Matcher<'a> {
                     Searching(&'a TextFilter),
@@ -166,14 +166,12 @@ impl<D: Data + ?Sized> Filter<D> for DataFilter {
                         }
                     }
                     #[inline]
-                    fn accepts<T: 'static + ?Sized>() -> bool {
-                        use core::any::TypeId;
-                        TypeId::of::<T>() == TypeId::of::<str>()
-                            || TypeId::of::<T>() == TypeId::of::<String>()
+                    fn accepting() -> impl crate::rr::typeset::TypeSet + 'static
+                    where
+                        Self: Sized,
+                    {
+                        crate::rr::typeset::StringLike::default()
                     }
-                }
-                impl Req for Matcher<'static> {
-                    type Receiver<'d> = &'d mut Matcher<'d>;
                 }
 
                 let mut m = Matcher::Searching(f);
@@ -184,7 +182,7 @@ impl<D: Data + ?Sized> Filter<D> for DataFilter {
                 //     return matches!(m, Matcher::Found);
                 // }
 
-                d.provide_value(Request::new(&mut m as &mut dyn Receiver));
+                d.provide_value(&mut Request::new_erased(&mut m));
                 matches!(m, Matcher::Found)
             }
         }
