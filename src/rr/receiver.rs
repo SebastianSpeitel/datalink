@@ -323,8 +323,6 @@ impl<R: super::Receiver> ReceiverExt for R {
     #[inline]
     fn accepts_id(&self, type_id: core::any::TypeId) -> bool {
         use super::TypeSet;
-        R::accepting()
-            .contains_id_checked(type_id)
-            .unwrap_or_default()
+        R::accepting().contains_id(type_id)
     }
 }
