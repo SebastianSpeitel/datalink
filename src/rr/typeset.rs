@@ -1,5 +1,4 @@
 use core::any::TypeId;
-use core::convert::Infallible;
 use core::marker::PhantomData;
 
 pub trait TypeSet {
