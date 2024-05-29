@@ -95,9 +95,8 @@ impl Receiver for ErasedReceiver<'_> {
     }
     #[inline]
     fn accepting() -> impl super::TypeSet + 'static {
-        #[derive(Debug, Default, Clone, Copy)]
-        struct ErasedReceiverError;
-        super::typeset::Invalid::<ErasedReceiverError>::default()
+        debug_assert!(false, "ErasedReceiver::accepting() should not be called");
+        super::typeset::All
     }
 }
 
@@ -111,10 +110,9 @@ impl core::fmt::Debug for ErasedAccepting<'_> {
 }
 
 impl super::TypeSet for ErasedAccepting<'_> {
-    type Error = core::convert::Infallible;
     #[inline]
-    fn contains_id_checked(&self, type_id: core::any::TypeId) -> Result<bool, Self::Error> {
-        Ok(self.0.accepts_id(type_id))
+    fn contains_id(&self, type_id: core::any::TypeId) -> bool {
+        self.0.accepts_id(type_id)
     }
 }
 

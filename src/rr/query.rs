@@ -6,7 +6,7 @@ use super::{
 pub trait Query {
     type Request;
     type Receiver<'r>: Receiver;
-    type Requesting<'r>: TypeSet<Error = core::convert::Infallible>;
+    type Requesting<'r>: TypeSet;
 
     fn get_receiver<'r>(request: &'r mut Self::Request) -> Self::Receiver<'r>;
 

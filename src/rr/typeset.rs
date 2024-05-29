@@ -3,74 +3,23 @@ use core::convert::Infallible;
 use core::marker::PhantomData;
 
 pub trait TypeSet {
-    type Error;
-
-    fn contains_id_checked(&self, type_id: TypeId) -> Result<bool, Self::Error>;
-
-    #[inline]
-    fn contains_type_checked<T: 'static + ?Sized>(&self) -> Result<bool, Self::Error>
-    where
-        Self: Sized,
-    {
-        self.contains_id_checked(TypeId::of::<T>())
-    }
-    #[allow(unused_variables)]
-    #[inline]
-    fn contains_type_of_checked<T: 'static + ?Sized>(&self, value: &T) -> Result<bool, Self::Error>
-    where
-        Self: Sized,
-    {
-        self.contains_type_checked::<T>()
-    }
-
-    #[inline]
-    fn contains_id(&self, type_id: TypeId) -> bool
-    where
-        Self: TypeSet<Error = Infallible> + Sized,
-    {
-        match self.contains_id_checked(type_id) {
-            Ok(result) => result,
-            Err(never) => match never {},
-        }
-    }
+    fn contains_id(&self, type_id: TypeId) -> bool;
     #[inline]
     fn contains_type<T: 'static + ?Sized>(&self) -> bool
     where
-        Self: TypeSet<Error = Infallible> + Sized,
+        Self: Sized,
     {
-        match self.contains_type_checked::<T>() {
-            Ok(result) => result,
-            Err(never) => match never {},
-        }
+        self.contains_id(TypeId::of::<T>())
     }
     #[allow(unused_variables)]
     #[inline]
     fn contains_type_of<T: 'static + ?Sized>(&self, value: &T) -> bool
     where
-        Self: TypeSet<Error = Infallible> + Sized,
+        Self: Sized,
     {
-        match self.contains_type_of_checked::<T>(value) {
-            Ok(result) => result,
-            Err(never) => match never {},
-        }
+        self.contains_type::<T>()
     }
 }
-
-// impl<E> TypeSet for &dyn TypeSet<Error = E> {
-//     type Error = E;
-//     #[inline]
-//     fn contains_id_checked(&self, type_id: TypeId) -> Result<bool, Self::Error> {
-//         (**self).contains_id_checked(type_id)
-//     }
-// }
-
-// impl<E> TypeSet for Box<dyn TypeSet<Error = E>> {
-//     type Error = E;
-//     #[inline]
-//     fn contains_id_checked(&self, type_id: TypeId) -> Result<bool, Self::Error> {
-//         (**self).contains_id_checked(type_id)
-//     }
-// }
 
 #[derive(Debug)]
 pub struct Only<T: ?Sized>(PhantomData<T>);
@@ -86,45 +35,19 @@ impl<T> TypeSet for Only<T>
 where
     T: 'static + ?Sized,
 {
-    type Error = Infallible;
     #[inline]
-    fn contains_id_checked(&self, type_id: TypeId) -> Result<bool, Self::Error> {
-        Ok(type_id == TypeId::of::<T>())
+    fn contains_id(&self, type_id: TypeId) -> bool {
+        type_id == TypeId::of::<T>()
     }
 }
-
-// impl<const N: usize> TypeSet for [TypeId; N] {
-//     type Error = Infallible;
-//     #[inline]
-//     fn contains_id_checked(&self, type_id: TypeId) -> Result<bool, Self::Error> {
-//         Ok(self.contains(&type_id))
-//     }
-// }
-
-// impl TypeSet for Vec<TypeId> {
-//     type Error = Infallible;
-//     #[inline]
-//     fn contains_id_checked(&self, type_id: TypeId) -> Result<bool, Self::Error> {
-//         Ok(self.contains(&type_id))
-//     }
-// }
-
-// impl TypeSet for [TypeId] {
-//     type Error = Infallible;
-//     #[inline]
-//     fn contains_id_checked(&self, type_id: TypeId) -> Result<bool, Self::Error> {
-//         Ok(self.contains(&type_id))
-//     }
-// }
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct All;
 
 impl TypeSet for All {
-    type Error = Infallible;
     #[inline]
-    fn contains_id_checked(&self, _type_id: TypeId) -> Result<bool, Self::Error> {
-        Ok(true)
+    fn contains_id(&self, _type_id: TypeId) -> bool {
+        true
     }
 }
 
@@ -142,10 +65,9 @@ impl<T1> TypeSet for AnyOf<(T1,)>
 where
     T1: 'static + ?Sized,
 {
-    type Error = Infallible;
     #[inline]
-    fn contains_id_checked(&self, type_id: TypeId) -> Result<bool, Self::Error> {
-        Ok(type_id == TypeId::of::<T1>())
+    fn contains_id(&self, type_id: TypeId) -> bool {
+        type_id == TypeId::of::<T1>()
     }
 }
 
@@ -154,10 +76,9 @@ where
     T1: 'static,
     T2: 'static,
 {
-    type Error = Infallible;
     #[inline]
-    fn contains_id_checked(&self, type_id: TypeId) -> Result<bool, Self::Error> {
-        Ok(type_id == TypeId::of::<T1>() || type_id == TypeId::of::<T2>())
+    fn contains_id(&self, type_id: TypeId) -> bool {
+        type_id == TypeId::of::<T1>() || type_id == TypeId::of::<T2>()
     }
 }
 
@@ -170,15 +91,14 @@ where
     T5: 'static,
     T6: 'static,
 {
-    type Error = Infallible;
     #[inline]
-    fn contains_id_checked(&self, type_id: TypeId) -> Result<bool, Self::Error> {
-        Ok(type_id == TypeId::of::<T1>()
+    fn contains_id(&self, type_id: TypeId) -> bool {
+        type_id == TypeId::of::<T1>()
             || type_id == TypeId::of::<T2>()
             || type_id == TypeId::of::<T3>()
             || type_id == TypeId::of::<T4>()
             || type_id == TypeId::of::<T5>()
-            || type_id == TypeId::of::<T6>())
+            || type_id == TypeId::of::<T6>()
     }
 }
 
@@ -219,10 +139,9 @@ where
     T15: 'static,
     T16: 'static,
 {
-    type Error = Infallible;
     #[inline]
-    fn contains_id_checked(&self, type_id: TypeId) -> Result<bool, Self::Error> {
-        Ok(type_id == TypeId::of::<T1>()
+    fn contains_id(&self, type_id: TypeId) -> bool {
+        type_id == TypeId::of::<T1>()
             || type_id == TypeId::of::<T2>()
             || type_id == TypeId::of::<T3>()
             || type_id == TypeId::of::<T4>()
@@ -237,7 +156,7 @@ where
             || type_id == TypeId::of::<T13>()
             || type_id == TypeId::of::<T14>()
             || type_id == TypeId::of::<T15>()
-            || type_id == TypeId::of::<T16>())
+            || type_id == TypeId::of::<T16>()
     }
 }
 
@@ -246,24 +165,20 @@ pub struct And<T: TypeSet, U: TypeSet>(pub T, pub U);
 
 impl<T, U> TypeSet for And<T, U>
 where
-    T: TypeSet<Error = Infallible>,
-    U: TypeSet<Error = Infallible>,
+    T: TypeSet,
+    U: TypeSet,
 {
-    type Error = Infallible;
     #[inline]
-    fn contains_id_checked(&self, type_id: TypeId) -> Result<bool, Self::Error> {
-        Ok(self.0.contains_id(type_id) && self.1.contains_id(type_id))
+    fn contains_id(&self, type_id: TypeId) -> bool {
+        self.0.contains_id(type_id) && self.1.contains_id(type_id)
     }
     #[inline]
-    fn contains_type_checked<Typ: 'static + ?Sized>(&self) -> Result<bool, Self::Error> {
-        Ok(self.0.contains_type::<Typ>() && self.1.contains_type::<Typ>())
+    fn contains_type<Typ: 'static + ?Sized>(&self) -> bool {
+        self.0.contains_type::<Typ>() && self.1.contains_type::<Typ>()
     }
     #[inline]
-    fn contains_type_of_checked<Typ: 'static + ?Sized>(
-        &self,
-        val: &Typ,
-    ) -> Result<bool, Self::Error> {
-        Ok(self.0.contains_type_of(val) && self.1.contains_type_of(val))
+    fn contains_type_of<Typ: 'static + ?Sized>(&self, val: &Typ) -> bool {
+        self.0.contains_type_of(val) && self.1.contains_type_of(val)
     }
 }
 
@@ -272,24 +187,20 @@ pub struct Or<T: TypeSet, U: TypeSet>(pub T, pub U);
 
 impl<T, U> TypeSet for Or<T, U>
 where
-    T: TypeSet<Error = Infallible>,
-    U: TypeSet<Error = Infallible>,
+    T: TypeSet,
+    U: TypeSet,
 {
-    type Error = Infallible;
     #[inline]
-    fn contains_id_checked(&self, type_id: TypeId) -> Result<bool, Self::Error> {
-        Ok(self.0.contains_id(type_id) || self.1.contains_id(type_id))
+    fn contains_id(&self, type_id: TypeId) -> bool {
+        self.0.contains_id(type_id) || self.1.contains_id(type_id)
     }
     #[inline]
-    fn contains_type_checked<Typ: 'static + ?Sized>(&self) -> Result<bool, Self::Error> {
-        Ok(self.0.contains_type::<Typ>() || self.1.contains_type::<Typ>())
+    fn contains_type<Typ: 'static + ?Sized>(&self) -> bool {
+        self.0.contains_type::<Typ>() || self.1.contains_type::<Typ>()
     }
     #[inline]
-    fn contains_type_of_checked<Typ: 'static + ?Sized>(
-        &self,
-        val: &Typ,
-    ) -> Result<bool, Self::Error> {
-        Ok(self.0.contains_type_of(val) || self.1.contains_type_of(val))
+    fn contains_type_of<Typ: 'static + ?Sized>(&self, val: &Typ) -> bool {
+        self.0.contains_type_of(val) || self.1.contains_type_of(val)
     }
 }
 
@@ -297,21 +208,17 @@ where
 pub struct Not<T: TypeSet>(pub T);
 
 impl<T: TypeSet> TypeSet for Not<T> {
-    type Error = T::Error;
     #[inline]
-    fn contains_id_checked(&self, type_id: TypeId) -> Result<bool, Self::Error> {
-        self.0.contains_id_checked(type_id).map(|result| !result)
+    fn contains_id(&self, type_id: TypeId) -> bool {
+        !self.0.contains_id(type_id)
     }
     #[inline]
-    fn contains_type_checked<Typ: 'static + ?Sized>(&self) -> Result<bool, Self::Error> {
-        self.0.contains_type_checked::<Typ>().map(|result| !result)
+    fn contains_type<Typ: 'static + ?Sized>(&self) -> bool {
+        !self.0.contains_type::<Typ>()
     }
     #[inline]
-    fn contains_type_of_checked<Typ: 'static + ?Sized>(
-        &self,
-        val: &Typ,
-    ) -> Result<bool, Self::Error> {
-        self.0.contains_type_of_checked(val).map(|result| !result)
+    fn contains_type_of<Typ: 'static + ?Sized>(&self, val: &Typ) -> bool {
+        !self.0.contains_type_of(val)
     }
 }
 
@@ -338,38 +245,17 @@ impl<R> Default for AcceptedBy<R> {
 }
 
 impl<R: super::Receiver> TypeSet for AcceptedBy<R> {
-    type Error = Infallible;
     #[inline]
-    fn contains_id_checked(&self, type_id: TypeId) -> Result<bool, Self::Error> {
-        Ok(R::accepting()
-            .contains_id_checked(type_id)
-            .unwrap_or_default())
+    fn contains_id(&self, type_id: TypeId) -> bool {
+        R::accepting().contains_id(type_id)
     }
     #[inline]
-    fn contains_type_checked<T: 'static + ?Sized>(&self) -> Result<bool, Self::Error> {
-        Ok(R::accepting()
-            .contains_type_checked::<T>()
-            .unwrap_or_default())
+    fn contains_type<T: 'static + ?Sized>(&self) -> bool {
+        R::accepting().contains_type::<T>()
     }
     #[inline]
-    fn contains_type_of_checked<T: 'static + ?Sized>(
-        &self,
-        value: &T,
-    ) -> Result<bool, Self::Error> {
-        Ok(R::accepting()
-            .contains_type_of_checked(value)
-            .unwrap_or_default())
-    }
-}
-
-#[derive(Debug, Default, Clone, Copy)]
-pub struct Invalid<E>(E);
-
-impl<E: Clone> TypeSet for Invalid<E> {
-    type Error = E;
-    #[inline]
-    fn contains_id_checked(&self, _type_id: TypeId) -> Result<bool, Self::Error> {
-        Err(self.0.clone())
+    fn contains_type_of<T: 'static + ?Sized>(&self, value: &T) -> bool {
+        R::accepting().contains_type_of(value)
     }
 }
 
@@ -382,14 +268,6 @@ mod tests {
         let set = Only::<u8>::default();
         assert!(set.contains_type::<u8>());
         assert!(!set.contains_type::<u16>());
-    }
-
-    #[test]
-    fn infallible_result_size() {
-        assert_eq!(
-            core::mem::size_of::<Result<bool, Infallible>>(),
-            core::mem::size_of::<bool>()
-        );
     }
 
     #[test]
