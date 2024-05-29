@@ -166,10 +166,7 @@ impl<D: Data + ?Sized> Filter<D> for DataFilter {
                         }
                     }
                     #[inline]
-                    fn accepting() -> impl crate::rr::typeset::TypeSet + 'static
-                    where
-                        Self: Sized,
-                    {
+                    fn accepting() -> impl crate::rr::typeset::TypeSet + 'static {
                         crate::rr::typeset::StringLike::default()
                     }
                 }
