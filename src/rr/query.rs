@@ -8,9 +8,9 @@ pub trait Query {
     type Receiver<'r>: Receiver;
     type Requesting<'r>: TypeSet;
 
-    fn get_receiver<'r>(request: &'r mut Self::Request) -> Self::Receiver<'r>;
+    fn get_receiver(request: &mut Self::Request) -> Self::Receiver<'_>;
 
-    fn get_requesting<'r>(request: &'r Self::Request) -> Self::Requesting<'r>;
+    fn get_requesting(request: &Self::Request) -> Self::Requesting<'_>;
 }
 
 #[derive(Debug)]
@@ -27,7 +27,7 @@ impl<Q: Query> Query for IgnoreMeta<Q> {
     }
 
     #[inline]
-    fn get_requesting<'r>(request: &'r Self::Request) -> Self::Requesting<'r> {
+    fn get_requesting(request: &Self::Request) -> Self::Requesting<'_> {
         typeset::And(
             Q::get_requesting(request),
             typeset::Not(super::meta::MetaTypes::default()),
@@ -46,7 +46,7 @@ impl<R: Receiver + 'static> Query for R {
     }
 
     #[inline]
-    fn get_requesting<'r>(_request: &'r Self::Request) -> Self::Requesting<'r> {
+    fn get_requesting(_request: &Self::Request) -> Self::Requesting<'_> {
         typeset::AcceptedBy::new()
     }
 }

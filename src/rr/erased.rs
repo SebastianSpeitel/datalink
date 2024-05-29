@@ -125,12 +125,12 @@ impl<'q> super::query::Query for Erased<'q> {
     type Requesting<'r> = ErasedAccepting<'r>;
 
     #[inline]
-    fn get_receiver<'r>(request: &'r mut Self::Request) -> Self::Receiver<'r> {
+    fn get_receiver(request: &mut Self::Request) -> Self::Receiver<'_> {
         ErasedReceiver(*request)
     }
 
     #[inline]
-    fn get_requesting<'r>(request: &'r Self::Request) -> Self::Requesting<'r> {
+    fn get_requesting(request: &Self::Request) -> Self::Requesting<'_> {
         ErasedAccepting(*request)
     }
 }
