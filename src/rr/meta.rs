@@ -73,3 +73,5 @@ impl From<TypeId> for MetaInfo {
 }
 
 pub type MetaTypes = super::typeset::AnyOf<(IsNone, IsSome, IsBorrowed, IsNull, IsOwned, IsUnit)>;
+
+pub const META_TYPES: MetaTypes = super::typeset::AnyOf::new();

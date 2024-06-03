@@ -268,7 +268,7 @@ impl<const SERIAL: bool, const MAX_DEPTH: u16, const VERBOSITY: i8> Format
                         return false;
                     }
 
-                    if meta::MetaTypes::default().contains_type_of(val) {
+                    if meta::META_TYPES.contains_type_of(val) {
                         return !Self::HIDE_META;
                     }
 
@@ -537,7 +537,7 @@ impl<F: Format + ?Sized> Receiver for DebugReceiver<'_, '_, '_, F> {
             return;
         }
 
-        if !F::HIDE_META && meta::MetaTypes::default().contains_type_of(value) {
+        if !F::HIDE_META && meta::META_TYPES.contains_type_of(value) {
             let info = meta::MetaInfo::about_val(value);
             self.set.entry(&format_args!("{info}"));
             return;
