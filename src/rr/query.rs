@@ -30,7 +30,7 @@ impl<Q: Query> Query for IgnoreMeta<Q> {
     fn get_requesting(request: &Self::Request) -> Self::Requesting<'_> {
         typeset::And(
             Q::get_requesting(request),
-            typeset::Not(super::meta::MetaTypes::default()),
+            typeset::Not(super::meta::META_TYPES),
         )
     }
 }

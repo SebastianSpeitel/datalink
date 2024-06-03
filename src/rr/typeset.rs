@@ -53,10 +53,18 @@ impl TypeSet for All {
 #[derive(Debug, Clone, Copy)]
 pub struct AnyOf<T: ?Sized>(PhantomData<T>);
 
+impl<T: ?Sized> AnyOf<T> {
+    #[inline]
+    #[must_use]
+    pub const fn new() -> Self {
+        Self(PhantomData)
+    }
+}
+
 impl<T: ?Sized> Default for AnyOf<T> {
     #[inline]
     fn default() -> Self {
-        Self(PhantomData)
+        Self::new()
     }
 }
 
