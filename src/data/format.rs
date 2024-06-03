@@ -5,9 +5,8 @@ use std::{
 
 use crate::{
     data::{BoxedData, Data},
-    links::Link,
-    links::{Links, MaybeKeyed, Result, CONTINUE},
-    rr::{meta, Receiver, Request},
+    links::{Link, Links, MaybeKeyed, Result, CONTINUE},
+    rr::{meta, Receiver, Request, TypeSet},
 };
 
 use super::DataExt;
@@ -269,7 +268,7 @@ impl<const SERIAL: bool, const MAX_DEPTH: u16, const VERBOSITY: i8> Format
                         return false;
                     }
 
-                    if meta::MetaInfo::about_val(val).name().is_some() {
+                    if meta::MetaTypes::default().contains_type_of(val) {
                         return !Self::HIDE_META;
                     }
 
@@ -538,8 +537,8 @@ impl<F: Format + ?Sized> Receiver for DebugReceiver<'_, '_, '_, F> {
             return;
         }
 
-        let info = meta::MetaInfo::about_val(value);
-        if !F::HIDE_META && info.name().is_some() {
+        if !F::HIDE_META && meta::MetaTypes::default().contains_type_of(value) {
+            let info = meta::MetaInfo::about_val(value);
             self.set.entry(&format_args!("{info}"));
             return;
         }
