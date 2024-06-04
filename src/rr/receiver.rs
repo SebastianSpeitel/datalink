@@ -294,7 +294,7 @@ impl Receiver for Option<String> {
 
     #[inline]
     fn accepting() -> impl super::TypeSet + 'static {
-        super::typeset::StringLike::default()
+        super::typeset::STRING_LIKE
     }
 }
 
@@ -311,7 +311,7 @@ impl Receiver for Option<Vec<u8>> {
 
     #[inline]
     fn accepting() -> impl super::TypeSet + 'static {
-        super::typeset::BytesLike::default()
+        super::typeset::BYTES_LIKE
     }
 }
 

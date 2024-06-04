@@ -229,9 +229,8 @@ impl<T: TypeSet> TypeSet for Not<T> {
     }
 }
 
-pub type StringLike = AnyOf<(String, &'static str)>;
-
-pub type BytesLike = AnyOf<(Vec<u8>, &'static [u8])>;
+pub const STRING_LIKE: AnyOf<(String, &'static str)> = AnyOf::new();
+pub const BYTES_LIKE: AnyOf<(Vec<u8>, &'static [u8])> = AnyOf::new();
 
 #[derive(Debug)]
 pub struct AcceptedBy<R>(PhantomData<R>);
@@ -279,7 +278,7 @@ mod tests {
 
     #[test]
     fn stringlike() {
-        let set = StringLike::default();
+        let set = STRING_LIKE;
         assert!(set.contains_type::<String>());
         assert!(set.contains_type::<&str>());
         assert!(!set.contains_type::<u8>());
@@ -287,7 +286,7 @@ mod tests {
 
     #[test]
     fn byteslike() {
-        let set = BytesLike::default();
+        let set = BYTES_LIKE;
         assert!(set.contains_type::<Vec<u8>>());
         assert!(set.contains_type::<&[u8]>());
         assert!(!set.contains_type::<u8>());
