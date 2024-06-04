@@ -76,7 +76,7 @@ pub trait Receiver {
     }
 
     #[inline]
-    #[allow(unused_variables)]
+    #[allow(unused_variables, clippy::same_functions_in_if_condition)]
     fn other_ref(&mut self, value: &dyn Any) {
         if let Some(v) = value.downcast_ref() {
             self.bool(*v);
