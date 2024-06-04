@@ -411,7 +411,6 @@ pub trait DataExt: Data {
     }
 
     #[inline]
-    #[must_use]
     fn has_links(&self) -> Result<bool, LinkError> {
         use crate::links::impls::Linked;
         const FIRST: Query = Query::new(crate::query::LinkFilter::Any)

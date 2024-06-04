@@ -39,6 +39,7 @@ impl MetaInfo {
     }
 
     #[inline]
+    #[must_use]
     pub fn name(&self) -> Option<&'static str> {
         if self.0 == TypeId::of::<IsNone>() {
             Some("IsNone")

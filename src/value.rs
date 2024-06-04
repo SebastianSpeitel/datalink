@@ -28,7 +28,9 @@ pub enum Value {
 }
 
 impl Value {
+    #[allow(clippy::cast_possible_truncation)]
     #[inline]
+    #[must_use]
     pub fn as_number(&self) -> Option<isize> {
         match self {
             Value::U8(v) => (*v).try_into().ok(),
