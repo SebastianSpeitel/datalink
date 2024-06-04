@@ -32,19 +32,22 @@ impl Value {
     #[inline]
     #[must_use]
     pub fn as_number(&self) -> Option<isize> {
-        match self {
-            Value::U8(v) => (*v).try_into().ok(),
-            Value::I8(v) => (*v).try_into().ok(),
-            Value::U16(v) => (*v).try_into().ok(),
-            Value::I16(v) => (*v).try_into().ok(),
-            Value::U32(v) => (*v).try_into().ok(),
-            Value::I32(v) => (*v).try_into().ok(),
-            Value::U64(v) => (*v).try_into().ok(),
-            Value::I64(v) => (*v).try_into().ok(),
-            Value::U128(v) => (*v).try_into().ok(),
-            Value::I128(v) => (*v).try_into().ok(),
-            Value::F32(v) => (*v as isize).try_into().ok(),
-            Value::F64(v) => (*v as isize).try_into().ok(),
+        match *self {
+            Value::True => Some(1),
+            Value::False => Some(0),
+            Value::Bool(v) => Some(v.into()),
+            Value::U8(v) => Some(v.into()),
+            Value::I8(v) => Some(v.into()),
+            Value::U16(v) => v.try_into().ok(),
+            Value::I16(v) => Some(v.into()),
+            Value::U32(v) => v.try_into().ok(),
+            Value::I32(v) => v.try_into().ok(),
+            Value::U64(v) => v.try_into().ok(),
+            Value::I64(v) => v.try_into().ok(),
+            Value::U128(v) => v.try_into().ok(),
+            Value::I128(v) => v.try_into().ok(),
+            Value::F32(v) => Some(v as isize),
+            Value::F64(v) => Some(v as isize),
             _ => None,
         }
     }
