@@ -161,31 +161,6 @@ impl ValueReceiver for Value {
     }
 }
 
-#[inline]
-fn provide_value<R: ValueQuery>(value: &Value, request: &mut ValueRequest<R>) {
-    match value {
-        Value::Bool(v) => request.provide_ref(v),
-        Value::U8(v) => request.provide_ref(v),
-        Value::I8(v) => request.provide_ref(v),
-        Value::U16(v) => request.provide_ref(v),
-        Value::I16(v) => request.provide_ref(v),
-        Value::U32(v) => request.provide_ref(v),
-        Value::I32(v) => request.provide_ref(v),
-        Value::U64(v) => request.provide_ref(v),
-        Value::I64(v) => request.provide_ref(v),
-        Value::U128(v) => request.provide_ref(v),
-        Value::I128(v) => request.provide_ref(v),
-        Value::F32(v) => request.provide_ref(v),
-        Value::F64(v) => request.provide_ref(v),
-        Value::Char(v) => request.provide_ref(v),
-        Value::String(v) => request.provide_str(v),
-        Value::Bytes(v) => request.provide_bytes(v),
-        Value::Other(v) => request.provide_ref(v),
-        Value::True => request.provide_bool(true),
-        Value::False => request.provide_bool(false),
-    }
-}
-
 impl crate::Data for Value {
     #[inline]
     fn provide_value(&self, request: &mut ValueRequest) {
@@ -193,18 +168,38 @@ impl crate::Data for Value {
     }
     #[inline]
     fn provide_requested<Q: ValueQuery>(&self, request: &mut ValueRequest<Q>) -> impl Provided {
-        provide_value(self, request);
+        match *self {
+            Value::Bool(v) => request.provide_bool(v),
+            Value::U8(v) => request.provide_u8(v),
+            Value::I8(v) => request.provide_i8(v),
+            Value::U16(v) => request.provide_u16(v),
+            Value::I16(v) => request.provide_i16(v),
+            Value::U32(v) => request.provide_u32(v),
+            Value::I32(v) => request.provide_i32(v),
+            Value::U64(v) => request.provide_u64(v),
+            Value::I64(v) => request.provide_i64(v),
+            Value::U128(v) => request.provide_u128(v),
+            Value::I128(v) => request.provide_i128(v),
+            Value::F32(v) => request.provide_f32(v),
+            Value::F64(v) => request.provide_f64(v),
+            Value::Char(v) => request.provide_char(v),
+            Value::String(ref v) => request.provide_str(v),
+            Value::Bytes(ref v) => request.provide_bytes(v),
+            Value::Other(ref v) => request.provide_ref(v),
+            Value::True => request.provide_bool(true),
+            Value::False => request.provide_bool(false),
+        }
     }
 }
 
 impl std::fmt::Display for Value {
     #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
+        match *self {
             Value::True => f.write_str("true"),
             Value::False => f.write_str("false"),
             Value::Bool(v) => {
-                if *v {
+                if v {
                     f.write_str("true")
                 } else {
                     f.write_str("false")
@@ -223,9 +218,9 @@ impl std::fmt::Display for Value {
             Value::F32(v) => f.write_fmt(format_args!("{v}f32")),
             Value::F64(v) => f.write_fmt(format_args!("{v}f64")),
             Value::Char(v) => f.write_fmt(format_args!("'{}'", v.escape_default())),
-            Value::String(v) => f.write_fmt(format_args!("{v:?}")),
-            Value::Bytes(v) => f.write_fmt(format_args!("b{}", v.escape_ascii())),
-            Value::Other(v) => f.write_fmt(format_args!("{v:?}")),
+            Value::String(ref v) => f.write_fmt(format_args!("{v:?}")),
+            Value::Bytes(ref v) => f.write_fmt(format_args!("b{}", v.escape_ascii())),
+            Value::Other(ref v) => f.write_fmt(format_args!("{v:?}")),
         }
     }
 }
