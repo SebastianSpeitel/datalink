@@ -386,13 +386,16 @@ pub trait DataExt: Data {
     #[cfg(all(feature = "well_known", feature = "unique"))]
     #[inline]
     fn is_tagged_with(&self, tag: &impl crate::data::unique::Unique) -> Result<bool, LinkError> {
+        use crate::links::impls::Linked;
         let query = {
             use crate::query::prelude::*;
             use crate::well_known::{TagType, WellKnown};
-            Query::new(Link::Key(Data::Id(TagType::ID)) & Link::target(Data::eq(tag))).build()
+            Query::new(Link::Key(Data::Id(TagType::ID)) & Link::target(Data::eq(tag)))
+                .with_limit(1)
+                .build()
         };
 
-        Ok(self.query::<Option<BoxedData>>(&query)?.is_some())
+        Ok(self.query::<Linked>(&query)? == Linked::Yes)
     }
 
     #[inline]
@@ -483,5 +486,27 @@ mod tests {
         let items = DataExt::as_items(&v).unwrap();
 
         assert_eq!(items.len(), 0);
+    }
+
+    #[test]
+    #[cfg(feature = "well_known")]
+    fn tagged() {
+        use crate::{data::constant::Const, links::LinksExt, well_known::TAG};
+
+        const IS_TAGGED: Const<12345> = Const::<12345>::empty();
+
+        struct Tagged;
+        impl Data for Tagged {
+            fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
+                links.push_link((TAG, IS_TAGGED))?;
+                Ok(())
+            }
+        }
+
+        let tagged = Tagged.is_tagged_with(&IS_TAGGED).unwrap();
+        assert!(tagged);
+
+        let tags = Tagged.tags().unwrap();
+        assert_eq!(tags.len(), 1);
     }
 }
