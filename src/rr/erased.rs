@@ -6,7 +6,7 @@ pub struct ErasedReceiver<'r>(&'r mut dyn ReceiverExt);
 
 impl core::fmt::Debug for ErasedReceiver<'_> {
     #[inline]
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         f.debug_struct("ErasedReceiver").finish()
     }
 }
@@ -104,8 +104,8 @@ pub struct ErasedAccepting<'r>(&'r dyn super::receiver::ReceiverExt);
 
 impl core::fmt::Debug for ErasedAccepting<'_> {
     #[inline]
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("ErasedAccepting").finish()
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        f.debug_struct("ErasedAccepting").finish_non_exhaustive()
     }
 }
 

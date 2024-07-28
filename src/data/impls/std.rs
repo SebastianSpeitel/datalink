@@ -156,16 +156,16 @@ mod net {
         #[inline]
         fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
             match self {
-                net::IpAddr::V4(ip) => ip.provide_requested(request).was_provided(),
-                net::IpAddr::V6(ip) => ip.provide_requested(request).was_provided(),
+                Self::V4(ip) => ip.provide_requested(request).was_provided(),
+                Self::V6(ip) => ip.provide_requested(request).was_provided(),
             }
         }
 
         #[inline]
         fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
             match self {
-                net::IpAddr::V4(ip) => ip.provide_links(links),
-                net::IpAddr::V6(ip) => ip.provide_links(links),
+                Self::V4(ip) => ip.provide_links(links),
+                Self::V6(ip) => ip.provide_links(links),
             }
         }
     }
@@ -227,16 +227,16 @@ mod net {
         #[inline]
         fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
             match self {
-                net::SocketAddr::V4(addr) => addr.provide_requested(request).was_provided(),
-                net::SocketAddr::V6(addr) => addr.provide_requested(request).was_provided(),
+                Self::V4(addr) => addr.provide_requested(request).was_provided(),
+                Self::V6(addr) => addr.provide_requested(request).was_provided(),
             }
         }
 
         #[inline]
         fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
             match self {
-                net::SocketAddr::V4(addr) => addr.provide_links(links),
-                net::SocketAddr::V6(addr) => addr.provide_links(links),
+                Self::V4(addr) => addr.provide_links(links),
+                Self::V6(addr) => addr.provide_links(links),
             }
         }
     }
