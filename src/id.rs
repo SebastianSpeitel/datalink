@@ -78,7 +78,7 @@ impl<T> ID<T> {
 
     /// Get a reference to the raw `T` value
     #[inline]
-    pub fn as_raw(&self) -> &T {
+    pub const fn as_raw(&self) -> &T {
         &self.0
     }
 }

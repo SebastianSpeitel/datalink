@@ -1,4 +1,4 @@
-use core::any::Any;
+use core::any::{Any, TypeId};
 
 pub trait Receiver {
     #[inline]
@@ -316,12 +316,12 @@ impl Receiver for Option<Vec<u8>> {
 }
 
 pub trait ReceiverExt: Receiver {
-    fn accepts_id(&self, type_id: core::any::TypeId) -> bool;
+    fn accepts_id(&self, type_id: TypeId) -> bool;
 }
 
 impl<R: super::Receiver> ReceiverExt for R {
     #[inline]
-    fn accepts_id(&self, type_id: core::any::TypeId) -> bool {
+    fn accepts_id(&self, type_id: TypeId) -> bool {
         use super::TypeSet;
         R::accepting().contains_id(type_id)
     }
