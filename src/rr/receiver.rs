@@ -76,79 +76,80 @@ pub trait Receiver {
     }
 
     #[inline]
-    #[allow(unused_variables, clippy::same_functions_in_if_condition)]
     fn other_ref(&mut self, value: &dyn Any) {
-        if let Some(v) = value.downcast_ref() {
-            self.bool(*v);
-        } else if let Some(v) = value.downcast_ref() {
-            self.i8(*v);
-        } else if let Some(v) = value.downcast_ref() {
-            self.u8(*v);
-        } else if let Some(v) = value.downcast_ref() {
-            self.i16(*v);
-        } else if let Some(v) = value.downcast_ref() {
-            self.u16(*v);
-        } else if let Some(v) = value.downcast_ref() {
-            self.i32(*v);
-        } else if let Some(v) = value.downcast_ref() {
-            self.u32(*v);
-        } else if let Some(v) = value.downcast_ref() {
-            self.i64(*v);
-        } else if let Some(v) = value.downcast_ref() {
-            self.u64(*v);
-        } else if let Some(v) = value.downcast_ref() {
-            self.i128(*v);
-        } else if let Some(v) = value.downcast_ref() {
-            self.u128(*v);
-        } else if let Some(v) = value.downcast_ref() {
-            self.f32(*v);
-        } else if let Some(v) = value.downcast_ref() {
-            self.f64(*v);
-        } else if let Some(v) = value.downcast_ref() {
-            self.char(*v);
-        } else if let Some(v) = value.downcast_ref::<&str>() {
-            self.str(v);
-        } else if let Some(v) = value.downcast_ref::<String>() {
-            self.str(v);
-        } else if let Some(v) = value.downcast_ref::<&[u8]>() {
-            self.bytes(v);
-        } else if let Some(v) = value.downcast_ref::<Vec<u8>>() {
-            self.bytes(v);
+        macro_rules! match_cast {
+            ($($ty:ty => $f:ident $(,)?)*) => {
+                match value.type_id() {
+                    $(id if id == TypeId::of::<$ty>() => {
+                        if let Some(v) = value.downcast_ref() {
+                            self.$f(*v);
+                        }
+                    })*
+                    _ => {}
+                };
+            };
         }
+
+        match_cast! {
+            bool => bool,
+            i8 => i8,
+            u8 => u8,
+            i16 => i16,
+            u16 => u16,
+            i32 => i32,
+            u32 => u32,
+            i64 => i64,
+            u64 => u64,
+            i128 => i128,
+            u128 => u128,
+            f32 => f32,
+            f64 => f64,
+            char => char,
+            str => str,
+            &str => str,
+            String => str,
+            [u8] => bytes,
+            &[u8] => bytes,
+            Vec<u8> => bytes,
+        };
     }
 
     #[inline]
-    #[allow(unused_variables)]
     fn other_boxed(&mut self, value: Box<dyn Any>) {
-        macro_rules! cast_and_provide {
-            ($val:ident,$ty:ty, $fn:ident) => {
-                match $val.downcast::<$ty>() {
-                    Ok(v) => {
-                        self.$fn(*v);
+        macro_rules! match_cast {
+            ($($ty:ty => $f:ident $(,)?)*) => {
+                match value.type_id() {
+                    $(id if id == TypeId::of::<$ty>() => {
+                        if let Ok(v) = value.downcast::<$ty>() {
+                            self.$f(*v);
+                        }
                         return;
-                    }
-                    Err(v) => v,
-                }
+                    })*
+                    _ => {}
+                };
             };
         }
-        let value = cast_and_provide!(value, bool, bool);
-        let value = cast_and_provide!(value, i8, i8);
-        let value = cast_and_provide!(value, u8, u8);
-        let value = cast_and_provide!(value, i16, i16);
-        let value = cast_and_provide!(value, u16, u16);
-        let value = cast_and_provide!(value, i32, i32);
-        let value = cast_and_provide!(value, u32, u32);
-        let value = cast_and_provide!(value, i64, i64);
-        let value = cast_and_provide!(value, u64, u64);
-        let value = cast_and_provide!(value, i128, i128);
-        let value = cast_and_provide!(value, u128, u128);
-        let value = cast_and_provide!(value, f32, f32);
-        let value = cast_and_provide!(value, f64, f64);
-        let value = cast_and_provide!(value, char, char);
-        let value = cast_and_provide!(value, &str, str);
-        let value = cast_and_provide!(value, String, str_owned);
-        let value = cast_and_provide!(value, &[u8], bytes);
-        let value = cast_and_provide!(value, Vec<u8>, bytes_owned);
+
+        match_cast! {
+            bool => bool,
+            i8 => i8,
+            u8 => u8,
+            i16 => i16,
+            u16 => u16,
+            i32 => i32,
+            u32 => u32,
+            i64 => i64,
+            u64 => u64,
+            i128 => i128,
+            u128 => u128,
+            f32 => f32,
+            f64 => f64,
+            char => char,
+            &str => str,
+            String => str_owned,
+            &[u8] => bytes,
+            Vec<u8> => bytes_owned,
+        };
 
         self.other_ref(value.as_ref());
     }
