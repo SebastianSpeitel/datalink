@@ -1,158 +1,125 @@
 use ::toml::value::{Date, Datetime, Offset, Table, Time, Value};
 
-use crate::data::Data;
-use crate::links::{LinkError, Links, LinksExt};
-use crate::rr::{provided::Provided, Query, Request};
+use crate::{Data, Request};
 
 impl Data for Value {
     #[inline]
-    fn provide_value(&self, request: &mut Request) {
-        self.provide_requested(request).debug_assert_provided();
-    }
-    #[inline]
-    fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
-        use Value as V;
+    fn query(&self, request: &mut impl Request) {
+        request.provide_discriminant(self);
         match *self {
-            V::String(ref s) => request.provide_str(s),
-            V::Integer(i) => request.provide_i64(i),
-            V::Float(f) => request.provide_f64(f),
-            V::Boolean(b) => request.provide_bool(b),
-            V::Datetime(dt) => dt.provide_requested(request).debug_assert_provided(),
-            V::Array(..) | V::Table(..) => {}
+            Value::String(ref s) => s.query(request),
+            Value::Integer(i) => i.query(request),
+            Value::Float(f) => f.query(request),
+            Value::Boolean(b) => b.query(request),
+            Value::Datetime(ref dt) => dt.query(request),
+            Value::Array(ref a) => a.query(request),
+            Value::Table(ref t) => t.query(request),
         }
     }
 
     #[inline]
-    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-        use Value as V;
+    fn query_owned(self, request: &mut impl Request) {
+        request.provide_discriminant(&self);
         match self {
-            V::Table(table) => table.provide_links(links),
-            V::Array(array) => array.provide_links(links),
-            V::Datetime(dt) => dt.provide_links(links),
-            _ => Ok(()),
-        }
-    }
-
-    #[inline]
-    fn query_links(
-        &self,
-        links: &mut dyn Links,
-        query: &crate::query::Query,
-    ) -> Result<(), LinkError> {
-        use Value as V;
-        match self {
-            V::Table(table) => table.query_links(links, query),
-            V::Array(array) => array.query_links(links, query),
-            V::Datetime(dt) => dt.query_links(links, query),
-            _ => Ok(()),
+            Value::String(s) => s.query(request),
+            Value::Integer(i) => i.query(request),
+            Value::Float(f) => f.query(request),
+            Value::Boolean(b) => b.query(request),
+            Value::Datetime(dt) => dt.query(request),
+            Value::Array(a) => a.query(request),
+            Value::Table(t) => t.query(request),
         }
     }
 }
 
 impl Data for Table {
     #[inline]
-    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-        links.extend(self.iter().map(|(k, v)| (k.to_owned(), v.to_owned())))?;
-        Ok(())
+    fn query(&self, request: &mut impl Request) {
+        for l in self.iter().map(|(k, v)| (k.to_owned(), v.to_owned())) {
+            request.push_link(l);
+        }
     }
 
     #[inline]
-    fn query_links(
-        &self,
-        links: &mut dyn Links,
-        query: &crate::query::Query,
-    ) -> Result<(), LinkError> {
-        use crate::query::Filter;
-        links.extend(self.iter().filter_map(|(k, v)| {
-            if query.matches_owned((k, v)) {
-                Some((k.to_owned(), v.to_owned()))
-            } else {
-                None
-            }
-        }))?;
-        Ok(())
+    fn query_owned(self, request: &mut impl Request) {
+        for l in self {
+            request.push_link(l);
+        }
     }
 }
 
 impl Data for Datetime {
     #[inline]
-    fn provide_value(&self, request: &mut Request) {
-        self.provide_requested(request).debug_assert_provided();
-    }
-    #[inline]
-    fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
-        if request.requests::<String>() {
-            request.provide_str_owned(self.to_string());
+    fn query(&self, request: &mut impl Request) {
+        if true {
+            // check if query requests String
+            request.provide_string(self.to_string());
         }
-        request.provide_ref(self);
+        request.push_link(("date", self.date));
+        request.push_link(("time", self.time));
+        request.push_link(("offset", self.offset));
     }
+
     #[inline]
-    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-        links.push_link(("date", self.date))?;
-        links.push_link(("time", self.time))?;
-        links.push_link(("offset", self.offset))?;
-        Ok(())
+    fn query_owned(self, request: &mut impl Request) {
+        if true {
+            // check if query requests String
+            request.provide_string(self.to_string());
+        }
+
+        request.push_link(("date", self.date));
+        request.push_link(("time", self.time));
+        request.push_link(("offset", self.offset));
     }
 }
 
 impl Data for Date {
     #[inline]
-    fn provide_value(&self, request: &mut Request) {
-        self.provide_requested(request).debug_assert_provided();
-    }
-    #[inline]
-    fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
-        if request.requests::<String>() {
-            request.provide_str_owned(self.to_string());
+    fn query(&self, request: &mut impl Request) {
+        request.provide_ref_unchecked(self);
+
+        if true {
+            // check if query requests String
+            request.provide_string(self.to_string());
         }
-        request.provide_ref(self);
-    }
-    #[inline]
-    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-        links.push_link(("year", self.year))?;
-        links.push_link(("month", self.month))?;
-        links.push_link(("day", self.day))?;
-        Ok(())
+
+        request.push_link(("year", self.year));
+        request.push_link(("month", self.month));
+        request.push_link(("day", self.day));
     }
 }
 
 impl Data for Time {
     #[inline]
-    fn provide_value(&self, request: &mut Request) {
-        self.provide_requested(request).debug_assert_provided();
-    }
-    #[inline]
-    fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
-        if request.requests::<String>() {
-            request.provide_str_owned(self.to_string());
+    fn query(&self, request: &mut impl Request) {
+        request.provide_ref_unchecked(self);
+
+        if true {
+            // check if query requests String
+            request.provide_string(self.to_string());
         }
-        request.provide_ref(self);
-    }
-    #[inline]
-    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-        links.push_link(("hour", self.hour))?;
-        links.push_link(("minute", self.minute))?;
-        links.push_link(("second", self.second))?;
-        links.push_link(("nanosecond", self.nanosecond))?;
-        Ok(())
+
+        request.push_link(("hour", self.hour));
+        request.push_link(("minute", self.minute));
+        request.push_link(("second", self.second));
+        request.push_link(("nanosecond", self.nanosecond));
     }
 }
 
 impl Data for Offset {
     #[inline]
-    fn provide_value(&self, request: &mut Request) {
-        self.provide_requested(request).debug_assert_provided();
-    }
-    #[inline]
-    fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
-        if request.requests::<String>() {
-            request.provide_str_owned(self.to_string());
+    fn query(&self, request: &mut impl Request) {
+        request.provide_ref_unchecked(self);
+
+        if true {
+            // check if query requests String
+            request.provide_string(self.to_string());
         }
+
         match *self {
-            Self::Z => request.provide_i16(0),
-            Self::Custom { minutes } => request.provide_i16(minutes),
+            Self::Z => 0i16.query(request),
+            Self::Custom { minutes } => minutes.query(request),
         }
-        request.provide_ref(self);
     }
 }
 
@@ -166,21 +133,28 @@ mod tests {
     #[test]
     fn datetime() {
         let table = Table::from_str("value = 1911-01-01T10:11:12-00:36\n").unwrap();
-        dbg!(&table as &dyn Data);
+        dbg!(&table);
+        // dbg!(&table as &dyn Data);
 
-        let entries = table.as_items().unwrap();
+        let entries = table.as_items();
+
+        // dbg!(&entries);
 
         assert_eq!(entries.len(), 1);
 
         let (key, value) = &entries[0];
 
-        assert_eq!(key.as_str().unwrap(), "value");
-        assert_eq!(
-            value.as_str().unwrap().to_string(),
-            "1911-01-01T10:11:12-00:36"
-        );
+        // dbg!(core::any::type_name_of_val(key));
+        // dbg!(core::any::type_name_of_val(value));
 
-        let items = value.as_items().unwrap();
+        // dbg!(5);
+
+        assert_eq!(key.as_string().unwrap(), "value");
+        assert_eq!(value.as_string().unwrap(), "1911-01-01T10:11:12-00:36");
+
+        let items = value.as_items();
+
+        // dbg!(&items);
 
         assert_eq!(items.len(), 3);
     }

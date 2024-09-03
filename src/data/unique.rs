@@ -2,10 +2,8 @@ use std::borrow::Borrow;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
-use crate::data::{format, Data, DataExt};
+use crate::data::Data;
 use crate::id::ID;
-use crate::links::{LinkError, Links};
-use crate::rr::Request;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -70,7 +68,8 @@ impl<D: Data + ?Sized, T: Borrow<D>> Fixed<D, T> {
 impl<D: Data + ?Sized, T: Borrow<D>> std::fmt::Debug for Fixed<D, T> {
     #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.data.borrow().format::<format::DEBUG>().fmt(f)
+        todo!()
+        // self.data.borrow().format::<format::DEBUG>().fmt(f)
     }
 }
 
@@ -85,41 +84,26 @@ impl<D: Data + ?Sized, T: Borrow<D>> AsRef<D> for Fixed<D, T> {
 #[warn(clippy::missing_trait_methods)]
 impl<D: Data + ?Sized, T: Borrow<D>> Data for Fixed<D, T> {
     #[inline]
-    fn provide_value(&self, request: &mut Request) {
-        self.as_ref().provide_value(request);
+    fn query(&self, request: &mut impl crate::Request) {
+        request.provide_id(self.id);
+        self.data.borrow().query(request);
     }
+
     #[inline]
-    fn provide_requested<Q: crate::rr::Query>(
-        &self,
-        _request: &mut Request<Q>,
-    ) -> impl super::Provided
+    fn query_owned(self, request: &mut impl crate::Request)
     where
         Self: Sized,
     {
-        crate::rr::provided::DefaultImpl
+        request.provide_id(self.id);
+        self.data.borrow().query(request);
     }
-    #[inline]
-    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-        self.as_ref().provide_links(links)
-    }
-    #[inline]
-    fn query_links(
-        &self,
-        links: &mut dyn Links,
-        query: &crate::query::Query,
-    ) -> Result<(), LinkError> {
-        self.as_ref().query_links(links, query)
-    }
-    #[inline]
-    fn get_id(&self) -> Option<ID> {
-        #[cfg(debug_assertions)]
-        if let Some(id) = self.as_ref().get_id() {
-            debug_assert_eq!(id, self.id);
-        }
 
+    #[inline]
+    fn get_id(&self) -> Option<crate::id::ID> {
         Some(self.id)
     }
 }
+
 impl<D: Data + ?Sized, T: Borrow<D>> Unique for Fixed<D, T> {
     #[inline]
     fn id(&self) -> ID {

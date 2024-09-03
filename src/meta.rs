@@ -1,17 +1,21 @@
 use core::any::TypeId;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct IsNone;
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct IsSome;
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct IsBorrowed;
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct IsOwned;
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct IsNull;
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct IsUnit;
+#[derive(Debug, Default)]
+pub struct IsInfallible;
+#[derive(Debug, Default)]
+pub struct IsEmptyCell;
 
 #[derive(Debug)]
 #[repr(transparent)]
@@ -73,6 +77,6 @@ impl From<TypeId> for MetaInfo {
     }
 }
 
-pub type MetaTypes = super::typeset::AnyOf<(IsNone, IsSome, IsBorrowed, IsNull, IsOwned, IsUnit)>;
+pub type MetaTypes = crate::filter::AnyOf<(IsNone, IsSome, IsBorrowed, IsNull, IsOwned, IsUnit)>;
 
-pub const META_TYPES: MetaTypes = super::typeset::AnyOf::new();
+pub const META_TYPES: MetaTypes = crate::filter::AnyOf::new();

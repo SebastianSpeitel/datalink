@@ -3,11 +3,8 @@ use std::{
     marker::PhantomData,
 };
 
-use crate::{
-    data::{BoxedData, Data},
-    links::{Link, Links, MaybeKeyed, Result, CONTINUE},
-    rr::{meta, Receiver, Request, TypeSet},
-};
+use crate::rr::meta;
+use crate::{rr::query::Link, Data, LinkQuery};
 
 use super::DataExt;
 
@@ -268,7 +265,7 @@ impl<const SERIAL: bool, const MAX_DEPTH: u16, const VERBOSITY: i8> Format
                         return false;
                     }
 
-                    if meta::META_TYPES.contains_type_of(val) {
+                    if meta::META_TYPES.accepts(val) {
                         return !Self::HIDE_META;
                     }
 
@@ -537,7 +534,7 @@ impl<F: Format + ?Sized> Receiver for DebugReceiver<'_, '_, '_, F> {
             return;
         }
 
-        if !F::HIDE_META && meta::META_TYPES.contains_type_of(value) {
+        if !F::HIDE_META && meta::META_TYPES.accepts(value) {
             let info = meta::MetaInfo::about_val(value);
             self.set.entry(&format_args!("{info}"));
             return;
@@ -552,8 +549,8 @@ impl<F: Format + ?Sized> Receiver for DebugReceiver<'_, '_, '_, F> {
     }
 
     #[inline]
-    fn accepting() -> impl crate::rr::TypeSet + 'static {
-        crate::rr::typeset::All
+    fn accepting() -> impl crate::rr::TypeFilter + 'static {
+        crate::rr::filter::Any
     }
 }
 pub trait Ellipsable {

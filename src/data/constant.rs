@@ -1,8 +1,6 @@
 use crate::data::unique::Unique;
-use crate::data::{format, Data, DataExt, Provided};
+use crate::data::Data;
 use crate::id::ID;
-use crate::links::{LinkError, Links};
-use crate::rr::Request;
 
 /// Wrapper for data with compile-time constant ID
 ///
@@ -56,7 +54,8 @@ where
 {
     #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.format::<format::DEBUG>().fmt(f)
+        todo!()
+        // self.format::<format::DEBUG>().fmt(f)
     }
 }
 
@@ -87,37 +86,29 @@ where
     for<'d> &'d D: Data,
 {
     #[inline]
-    fn provide_value(&self, request: &mut Request) {
-        (&self.0).provide_value(request);
+    fn query(&self, request: &mut impl crate::Request) {
+        if let Ok(id) = I.try_into().map(ID::from_raw) {
+            request.provide_id(id);
+        }
+        (&self.0).query(request);
     }
-
     #[inline]
-    fn provide_requested<Q: crate::rr::Query>(&self, request: &mut Request<Q>) -> impl Provided
+    fn query_owned(self, request: &mut impl crate::Request)
     where
         Self: Sized,
     {
-        (&self.0).provide_requested(request).was_provided()
+        if let Ok(id) = I.try_into().map(ID::from_raw) {
+            request.provide_id(id);
+        }
+        self.0.query_owned(request);
     }
-
     #[inline]
-    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-        (&self.0).provide_links(links)
-    }
-
-    #[inline]
-    fn query_links(
-        &self,
-        links: &mut dyn Links,
-        query: &crate::query::Query,
-    ) -> Result<(), LinkError> {
-        (&self.0).query_links(links, query)
-    }
-
-    #[inline(always)]
     fn get_id(&self) -> Option<ID> {
-        ID::try_new(I).ok()
+        debug_assert_ne!(I, 0, "ID must be non-zero");
+        I.try_into().ok().map(ID::from_raw)
     }
 }
+
 impl<const I: u128, D: ?Sized> Unique for Const<I, D>
 where
     for<'d> &'d D: Data,

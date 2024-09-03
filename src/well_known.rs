@@ -1,51 +1,48 @@
+use crate::{id::ID, Data, Request};
+
 pub trait WellKnown {
-    const ID: crate::id::ID;
+    const ID: ID;
+
+    #[inline]
+    fn query(req: &mut impl Request) {
+        let _ = req;
+    }
 }
 
 macro_rules! impl_well_known {
-    ($val:ident, $type:ident, id=$id:literal $($args:tt)*) => {
+    ($val:ident : $type:ident $(= $data:expr)? ; $id:literal) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
         pub struct $type;
-        impl $crate::well_known::WellKnown for $type {
+        impl WellKnown for $type {
             const ID: $crate::id::ID = unsafe { $crate::id::ID::new_unchecked($id) };
+
+            #[allow(unused_imports, unused_variables)]
+            #[inline]
+            fn query(request: &mut impl $crate::Request) {
+                use $crate::{Data};
+                $($data.query(request);)?
+            }
         }
-        $crate::impl_data!($type, id=<Self as $crate::well_known::WellKnown>::ID.into_raw() $($args)*);
+        impl Data for $type {
+            #[inline]
+            fn query(&self, request: &mut impl Request) {
+                request.provide_id(Self::ID);
+                <Self as WellKnown>::query(request);
+            }
+        }
         pub const $val: $type = $type;
     };
 }
 
-impl_well_known!(NONE, NoneType, id = 0x734BFA09_662B_477C_8B61_7E85B6C47645);
-impl_well_known!(
-    TAG,
-    TagType,
-    id = 0x734BFA09_662B_477C_8B61_7E85B6C47646,
-    value = "tag"
-);
-impl_well_known!(
-    TYPE,
-    TypeType,
-    id = 0x734BFA09_662B_477C_8B61_7E85B6C47647,
-    value = "type"
-);
-impl_well_known!(
-    KEY,
-    KeyType,
-    id = 0x734BFA09_662B_477C_8B61_7E85B6C47648,
-    value = "key"
-);
+impl_well_known!(NONE:NoneType; 0x734BFA09_662B_477C_8B61_7E85B6C47645);
+impl_well_known!(TAG:TagType = "tag"; 0x734BFA09_662B_477C_8B61_7E85B6C47646);
+impl_well_known!(TYPE:TypeType = "type"; 0x734BFA09_662B_477C_8B61_7E85B6C47647);
+impl_well_known!(KEY:KeyType = "key"; 0x734BFA09_662B_477C_8B61_7E85B6C47648);
+
 pub mod net {
-    impl_well_known!(
-        IP,
-        IPType,
-        id = 0x734BFA09_662B_477C_8B61_7E85B6C47649,
-        value = "ip"
-    );
-    impl_well_known!(
-        PORT,
-        PortType,
-        id = 0x734BFA09_662B_477C_8B61_7E85B6C4764A,
-        value = "port"
-    );
+    use super::*;
+    impl_well_known!(IP:IPType = "ip"; 0x734BFA09_662B_477C_8B61_7E85B6C47649);
+    impl_well_known!(PORT:PortType = "port"; 0x734BFA09_662B_477C_8B61_7E85B6C4764A);
 }
 
 #[cfg(test)]
