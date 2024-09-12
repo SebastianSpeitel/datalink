@@ -31,42 +31,6 @@ pub trait Data {
     }
 }
 
-// #[cfg(feature = "unique")]
-// impl<D: Data + ?Sized> PartialEq<D> for dyn Data {
-//     #[inline]
-//     fn eq(&self, other: &D) -> bool {
-//         match (self.get_id(), other.get_id()) {
-//             (Some(self_id), Some(other_id)) => self_id == other_id,
-//             _ => false,
-//         }
-//     }
-// }
-
-// impl Debug for dyn Data {
-//     #[inline]
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         self.format::<format::DEBUG>().fmt(f)
-//     }
-// }
-// impl Debug for dyn Data + Sync {
-//     #[inline]
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         self.format::<format::DEBUG>().fmt(f)
-//     }
-// }
-// impl Debug for dyn Data + Send {
-//     #[inline]
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         self.format::<format::DEBUG>().fmt(f)
-//     }
-// }
-// impl Debug for dyn Data + Sync + Send {
-//     #[inline]
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         self.format::<format::DEBUG>().fmt(f)
-//     }
-// }
-
 #[derive(Debug, Clone, Copy)]
 pub struct EnsuredErasable<D>(pub D);
 
