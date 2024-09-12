@@ -228,7 +228,8 @@ where
     }
 }
 
-struct Indenter<W> {
+#[derive(Debug)]
+pub struct Indenter<W> {
     buf: W,
     pending: Option<()>,
 }
@@ -250,7 +251,7 @@ impl<W: fmt::Write> Indenter<W> {
             if self.pending.is_some() {
                 self.buf.write_str(indent)?;
             }
-            self.pending = line.ends_with('\n').then(|| ());
+            self.pending = line.ends_with('\n').then_some(());
             self.buf.write_str(line)?;
         }
 
@@ -285,13 +286,14 @@ where
             .field("buf", &format_args!("{}", core::any::type_name::<W>()))
             .field("state", &self.state)
             .field("link", &self.link)
+            .field("has_fields", &self.has_fields)
+            .field("finished", &self.finished)
             .finish()
     }
 }
 
 impl<W: Write, F: Format + ?Sized> DataFormatter<W, F> {
     #[inline]
-    #[must_use]
     pub fn new(buf: W) -> Self {
         Self {
             buf,
@@ -302,7 +304,7 @@ impl<W: Write, F: Format + ?Sized> DataFormatter<W, F> {
         }
     }
 
-    fn new_with_state(buf: W, state: F::State) -> Self {
+    const fn new_with_state(buf: W, state: F::State) -> Self {
         Self {
             buf,
             state,
@@ -354,63 +356,83 @@ impl<W: Write, F: Format + ?Sized> DataFormatter<W, F> {
 #[warn(clippy::missing_trait_methods)]
 #[allow(unused_must_use)]
 impl<W: Write, F: Format + ?Sized> Receiver for DataFormatter<W, F> {
+    #[inline]
     fn bool(&mut self, value: bool) {
         F::fmt_value(self, crate::value::Value::Bool(value));
     }
+    #[inline]
     fn bytes(&mut self, value: &[u8]) {
-        F::fmt_value(self, crate::value::Value::Bytes(value.into()));
+        F::fmt_bytes(self, value);
     }
+    #[inline]
     fn bytes_owned(&mut self, value: Box<[u8]>) {
         F::fmt_value(self, crate::value::Value::Bytes(value.into()));
     }
+    #[inline]
     fn char(&mut self, value: char) {
         F::fmt_value(self, crate::value::Value::Char(value));
     }
+    #[inline]
     fn str(&mut self, value: &str) {
-        F::fmt_value(self, crate::value::Value::String(value.into()));
+        F::fmt_str(self, value);
     }
+    #[inline]
     fn str_owned(&mut self, value: Box<str>) {
         F::fmt_value(self, crate::value::Value::String(value.into()));
     }
+    #[inline]
     fn u8(&mut self, value: u8) {
         F::fmt_value(self, crate::value::Value::U8(value));
     }
+    #[inline]
     fn i8(&mut self, value: i8) {
         F::fmt_value(self, crate::value::Value::I8(value));
     }
+    #[inline]
     fn u16(&mut self, value: u16) {
         F::fmt_value(self, crate::value::Value::U16(value));
     }
+    #[inline]
     fn i16(&mut self, value: i16) {
         F::fmt_value(self, crate::value::Value::I16(value));
     }
+    #[inline]
     fn u32(&mut self, value: u32) {
         F::fmt_value(self, crate::value::Value::U32(value));
     }
+    #[inline]
     fn i32(&mut self, value: i32) {
         F::fmt_value(self, crate::value::Value::I32(value));
     }
+    #[inline]
     fn u64(&mut self, value: u64) {
         F::fmt_value(self, crate::value::Value::U64(value));
     }
+    #[inline]
     fn i64(&mut self, value: i64) {
         F::fmt_value(self, crate::value::Value::I64(value));
     }
+    #[inline]
     fn u128(&mut self, value: u128) {
         F::fmt_value(self, crate::value::Value::U128(value));
     }
+    #[inline]
     fn i128(&mut self, value: i128) {
         F::fmt_value(self, crate::value::Value::I128(value));
     }
+    #[inline]
     fn f32(&mut self, value: f32) {
         F::fmt_value(self, crate::value::Value::F32(value));
     }
+    #[inline]
     fn f64(&mut self, value: f64) {
         F::fmt_value(self, crate::value::Value::F64(value));
     }
+    #[inline]
     fn other_ref(&mut self, value: &dyn std::any::Any) {
         F::fmt_other(self, value);
     }
+    #[inline]
     fn other_boxed(&mut self, value: Box<dyn std::any::Any>) {
         F::fmt_value(self, crate::value::Value::Other(value));
     }
@@ -450,6 +472,7 @@ impl<W: Write, F: Format + ?Sized> Query for DataFormatter<W, F> {
 }
 
 impl<W: Write, F: Format + ?Sized> Drop for DataFormatter<W, F> {
+    #[inline]
     fn drop(&mut self) {
         let _ = self.finish();
     }
