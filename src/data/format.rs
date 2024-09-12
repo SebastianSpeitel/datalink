@@ -1,12 +1,9 @@
-use std::{
+use core::{
     fmt::{self, Debug, Display, Write},
     marker::PhantomData,
 };
 
-use crate::rr::meta;
-use crate::{rr::query::Link, Data, LinkQuery};
-
-use super::DataExt;
+use crate::{meta, value::Value, Data, Query, Receiver, TypeFilter};
 
 #[derive(Default, Debug)]
 pub struct FORMAT<const SERIAL: bool = false, const MAX_DEPTH: u16 = 6, const VERBOSITY: i8 = 0>;
@@ -15,31 +12,9 @@ pub type COMPACT<const MAX_DEPTH: u16 = 6, const VERBOSITY: i8 = -1> =
     FORMAT<true, MAX_DEPTH, VERBOSITY>;
 pub type DEBUG = FORMAT<true, 6, 1>;
 
-trait Verbosity {
-    fn collapse_value(&self) -> bool;
-    fn dedup_number_values(&self) -> bool;
-    fn show_id(&self) -> bool;
-}
-
-impl Verbosity for i8 {
-    #[inline]
-    fn collapse_value(&self) -> bool {
-        *self <= -1
-    }
-    #[inline]
-    fn dedup_number_values(&self) -> bool {
-        *self <= -2
-    }
-    #[inline]
-    fn show_id(&self) -> bool {
-        *self >= 1
-    }
-}
-
 pub trait Format {
-    type State: Default + Copy;
-    const PREFIX: &'static str = "Data";
-    const SUFFIX: &'static str = "";
+    type State: Default + Copy + Debug;
+
     /// `0` means no threshold
     const ELLIPSIS_THRESHOLD: usize = 0;
     /// Hide meta values from output
@@ -54,150 +29,81 @@ pub trait Format {
     }
 
     #[inline]
-    fn fmt(f: &mut fmt::Formatter, data: &(impl Data + ?Sized), state: Self::State) -> fmt::Result {
-        // Format prefix
-        Self::fmt_prefix(f, data, state)?;
+    fn enter_key(state: Self::State) -> Self::State {
+        state
+    }
 
-        if data.has_links().unwrap_or(true) {
-            Self::fmt_linked(f, data, state)?;
-        } else {
-            Self::fmt_unlinked(f, data, state)?;
+    #[inline]
+    fn enter_target(state: Self::State) -> Self::State {
+        state
+    }
+
+    #[inline]
+    fn fmt_value(f: &mut DataFormatter<impl fmt::Write, Self>, value: Value) -> fmt::Result {
+        match value {
+            Value::False => f.field(|mut f| write!(f, "bool: false")),
+            Value::True => f.field(|mut f| write!(f, "bool: true")),
+            Value::Bool(v) => f.field(|mut f| write!(f, "bool: {v}")),
+            Value::Char(v) => f.field(|mut f| write!(f, "char: {v}")),
+            Value::U8(v) => f.field(|mut f| write!(f, "u8: {v}")),
+            Value::I8(v) => f.field(|mut f| write!(f, "i8: {v}")),
+            Value::U16(v) => f.field(|mut f| write!(f, "u16: {v}")),
+            Value::I16(v) => f.field(|mut f| write!(f, "i16: {v}")),
+            Value::U32(v) => f.field(|mut f| write!(f, "u32: {v}")),
+            Value::I32(v) => f.field(|mut f| write!(f, "i32: {v}")),
+            Value::U64(v) => f.field(|mut f| write!(f, "u64: {v}")),
+            Value::I64(v) => f.field(|mut f| write!(f, "i64: {v}")),
+            Value::U128(v) => f.field(|mut f| write!(f, "u128: {v}")),
+            Value::I128(v) => f.field(|mut f| write!(f, "i128: {v}")),
+            Value::F32(v) => f.field(|mut f| write!(f, "f32: {v}")),
+            Value::F64(v) => f.field(|mut f| write!(f, "f64: {v}")),
+            Value::String(v) => Self::fmt_str(f, &v),
+            Value::Bytes(v) => Self::fmt_bytes(f, &v),
+            Value::Other(v) => Self::fmt_other(f, v.as_ref()),
         }
-
-        // Format suffix
-        Self::fmt_suffix(f, data, state)?;
-        Ok(())
     }
 
     #[allow(unused_variables)]
     #[inline]
-    fn fmt_empty(f: &mut fmt::Formatter, state: Self::State) -> fmt::Result {
-        f.write_str("{}")
-    }
-
-    #[inline]
-    fn fmt_unlinked(
-        f: &mut fmt::Formatter,
-        data: &(impl Data + ?Sized),
-        state: Self::State,
-    ) -> fmt::Result {
-        let mut set = f.debug_set();
-        Self::fmt_value_entries(&mut set, data, state);
-        set.finish()
-    }
-
-    #[inline]
-    fn fmt_linked(
-        f: &mut fmt::Formatter,
-        data: &(impl Data + ?Sized),
-        state: Self::State,
-    ) -> fmt::Result {
-        let mut set = f.debug_set();
-
-        // Format values
-        Self::fmt_value_entries(&mut set, data, state);
-
-        // Format links
-        Self::fmt_link_entries(&mut set, data, state);
-
-        // Finish set
-        set.finish()
-    }
-
-    #[allow(unused_variables)]
-    #[inline]
-    fn fmt_prefix(
-        f: &mut fmt::Formatter,
-        data: &(impl Data + ?Sized),
-        state: Self::State,
-    ) -> fmt::Result {
-        if Self::PREFIX.is_empty() {
-            return Ok(());
-        }
-        f.write_str(Self::PREFIX)
-    }
-
-    #[allow(unused_variables)]
-    #[inline]
-    fn fmt_suffix(
-        f: &mut fmt::Formatter,
-        data: &(impl Data + ?Sized),
-        state: Self::State,
-    ) -> fmt::Result {
-        if Self::SUFFIX.is_empty() {
-            return Ok(());
-        }
-        f.write_str(Self::SUFFIX)
-    }
-
-    #[allow(unused_variables)]
-    #[inline]
-    fn fmt_str(f: &mut fmt::Formatter, str: &str, state: Self::State) -> fmt::Result {
+    fn fmt_str(f: &mut DataFormatter<impl fmt::Write, Self>, str: &str) -> fmt::Result {
+        let escaped = str.escape_debug();
         if Self::ELLIPSIS_THRESHOLD == 0 {
-            Debug::fmt(str, f)
+            f.field(|mut f| write!(f, "str: \"{escaped}\""))
         } else if str.len() >= Self::ELLIPSIS_THRESHOLD.div_ceil(8) {
-            write!(f, "\"{}\"", str.escape_debug().ellipse::<Self>())
+            f.field(|mut f| write!(f, "str: \"{}\"", escaped.ellipse::<Self>()))
         } else {
-            Debug::fmt(str, f)
+            f.field(|mut f| write!(f, "str: \"{escaped}\""))
         }
     }
 
     #[allow(unused_variables)]
     #[inline]
-    fn fmt_bytes(f: &mut fmt::Formatter, bytes: &[u8], state: Self::State) -> fmt::Result {
+    fn fmt_bytes(f: &mut DataFormatter<impl fmt::Write, Self>, bytes: &[u8]) -> fmt::Result {
         let escaped = bytes.escape_ascii();
         if Self::ELLIPSIS_THRESHOLD == 0 {
-            write!(f, "b\"{escaped}\"")
+            f.field(|mut f| write!(f, "bytes: b\"{escaped}\""))
         } else if bytes.len() >= Self::ELLIPSIS_THRESHOLD.div_ceil(8) {
-            write!(f, "b\"{}\"", escaped.ellipse::<Self>())
+            f.field(|mut f| write!(f, "bytes: b\"{}\"", escaped.ellipse::<Self>()))
         } else {
-            write!(f, "b\"{escaped}\"")
+            f.field(|mut f| write!(f, "bytes: b\"{escaped}\""))
         }
     }
 
     #[inline]
-    fn fmt_value(
-        f: &mut fmt::Formatter,
-        value: &crate::value::Value,
-        state: Self::State,
+    fn fmt_other(
+        f: &mut DataFormatter<impl fmt::Write, Self>,
+        value: &dyn std::any::Any,
     ) -> fmt::Result {
-        use crate::value::Value;
-
-        match value {
-            Value::String(s) => Self::fmt_str(f, s, state),
-            Value::Bytes(b) => Self::fmt_bytes(f, b, state),
-            v => Display::fmt(v, f),
+        if Self::HIDE_UNKNOWN && Self::HIDE_META {
+            return Ok(());
         }
-    }
 
-    #[inline]
-    fn fmt_link<L: Link>(
-        f: &'_ mut fmt::Formatter<'_>,
-        link: &L,
-        state: Self::State,
-    ) -> fmt::Result {
-        if let Some(key) = link.key() {
-            Self::fmt(f, key, state)?;
-            f.write_str(" -> ")?;
-        } else if f.alternate() {
-            f.write_str("- ")?;
+        if !Self::HIDE_META && meta::META_TYPES.accepts(value) {
+            let info = meta::MetaInfo::about_val(value);
+            f.field(|mut f| write!(f, "{info}"))
+        } else {
+            f.field(|mut f| write!(f, "{{unknown}}"))
         }
-        Self::fmt(f, link.target(), state)
-    }
-
-    #[allow(unused_variables)]
-    #[inline]
-    fn fmt_value_entries(set: &mut fmt::DebugSet, data: &(impl Data + ?Sized), state: Self::State) {
-        let mut receiver = DebugReceiver::<Self> { set, state };
-
-        let mut request = Request::new_erased(&mut receiver);
-        data.provide_value(&mut request);
-    }
-
-    #[allow(unused_variables)]
-    #[inline]
-    fn fmt_link_entries(set: &mut fmt::DebugSet, data: &(impl Data + ?Sized), state: Self::State) {
-        set.entry(&format_args!("..."));
     }
 }
 
@@ -221,130 +127,19 @@ impl<const SERIAL: bool, const MAX_DEPTH: u16, const VERBOSITY: i8> Format
     }
 
     #[inline]
-    fn fmt_prefix(
-        f: &mut fmt::Formatter,
-        data: &(impl Data + ?Sized),
-        state: Self::State,
-    ) -> fmt::Result {
-        // Only print prefix on first level
-        if MAX_DEPTH == 0 || MAX_DEPTH == state {
-            f.write_str(Self::PREFIX)?;
-        }
-
-        #[cfg(feature = "unique")]
-        if VERBOSITY.show_id() {
-            if let Some(id) = data.get_id() {
-                f.write_fmt(format_args!("[{id}]"))?;
-            }
-        }
-
-        Ok(())
+    fn enter_key(state: Self::State) -> Self::State {
+        state.saturating_sub(1)
     }
 
     #[inline]
-    fn fmt_unlinked(
-        f: &mut fmt::Formatter,
-        data: &(impl Data + ?Sized),
-        state: Self::State,
-    ) -> fmt::Result {
-        use crate::value::{AllValues, Value};
-
-        let mut request = Request::<AllValues>::default();
-        data.provide_value(&mut request.as_erased());
-
-        let mut values = request.take();
-
-        if values.is_empty() {
-            return Self::fmt_empty(f, state);
-        }
-
-        if Self::HIDE_UNKNOWN || Self::HIDE_META {
-            values.retain(|val| match val {
-                Value::Other(val) => {
-                    if Self::HIDE_UNKNOWN && Self::HIDE_META {
-                        return false;
-                    }
-
-                    if meta::META_TYPES.accepts(val) {
-                        return !Self::HIDE_META;
-                    }
-
-                    !Self::HIDE_UNKNOWN
-                }
-                _ => true,
-            });
-        }
-
-        if values.is_empty() {
-            return Self::fmt_empty(f, state);
-        }
-
-        if !VERBOSITY.collapse_value() {
-            let mut set = f.debug_set();
-            Self::fmt_value_entries(&mut set, &values, state);
-            return set.finish();
-        }
-
-        if VERBOSITY.dedup_number_values() {
-            let num = values
-                .iter()
-                .try_fold(None, |num, val| match (num, val.as_number()) {
-                    // First number value
-                    (None, Some(n)) => Some(Some(n)),
-                    // Same number value
-                    (Some(n), Some(m)) if n == m => Some(Some(n)),
-                    // Different or not a number
-                    _ => None,
-                })
-                .flatten();
-
-            if let Some(num) = num {
-                f.write_fmt(format_args!("{{{num}}}"))?;
-                return Ok(());
-            }
-        }
-
-        if let Some(val) = values.single() {
-            f.write_char('{')?;
-            Self::fmt_value(f, val, state)?;
-            return f.write_char('}');
-        }
-
-        let mut set = f.debug_set();
-        Self::fmt_value_entries(&mut set, &values, state);
-        set.finish()
-    }
-
-    #[inline]
-    fn fmt_link_entries(set: &mut fmt::DebugSet, data: &(impl Data + ?Sized), state: Self::State) {
-        if MAX_DEPTH == 0 || state == 0 {
-            set.entry(&format_args!("..."));
-            return;
-        }
-
-        if SERIAL {
-            let mut links = Vec::<MaybeKeyed<_, _>>::new();
-            // Ignore errors
-            let _ = data.provide_links(&mut links);
-            let inner_state = state.saturating_sub(1);
-            set.entries(links.into_iter().map(|link| LinkEntry::<_, Self> {
-                link,
-                state: inner_state,
-            }));
-        } else {
-            let mut links = StreamingLinks::<'_, '_, '_, Self> {
-                fmt_set: set,
-                state: state.saturating_sub(1),
-            };
-            // Ignore errors
-            let _ = data.provide_links(&mut links);
-        }
+    fn enter_target(state: Self::State) -> Self::State {
+        state.saturating_sub(1)
     }
 }
 
 pub struct FormattableData<'d, F: Format, D: Data + ?Sized> {
     data: &'d D,
-    phantom: PhantomData<F>,
+    format: PhantomData<F>,
 }
 
 impl<'d, F: Format, D: Data + ?Sized> From<&'d D> for FormattableData<'d, F, D> {
@@ -352,7 +147,7 @@ impl<'d, F: Format, D: Data + ?Sized> From<&'d D> for FormattableData<'d, F, D> 
     fn from(data: &'d D) -> Self {
         Self {
             data,
-            phantom: PhantomData,
+            format: PhantomData,
         }
     }
 }
@@ -360,199 +155,21 @@ impl<'d, F: Format, D: Data + ?Sized> From<&'d D> for FormattableData<'d, F, D> 
 impl<F: Format, D: Data + ?Sized> Display for FormattableData<'_, F, D> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        F::fmt(f, self.data, F::init_state())
+        let mut f = DataFormatter::<_, F>::new(f);
+        self.data.query(&mut f);
+        f.finish()
     }
 }
 
 impl<F: Format, D: Data + ?Sized> Debug for FormattableData<'_, F, D> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        F::fmt(f, self.data, F::init_state())
+        let mut f = DataFormatter::<_, F>::new(f);
+        self.data.query(&mut f);
+        f.finish()
     }
 }
 
-struct LinkEntry<L, F: Format + ?Sized> {
-    link: L,
-    state: F::State,
-}
-
-impl<L: Link, F: Format + ?Sized> Debug for LinkEntry<L, F> {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        F::fmt_link(f, &self.link, self.state)
-    }
-}
-
-struct StreamingLinks<'a, 'b, 'c, F: Format> {
-    fmt_set: &'a mut fmt::DebugSet<'b, 'c>,
-    state: F::State,
-}
-
-impl<F: Format> Links for StreamingLinks<'_, '_, '_, F> {
-    #[inline]
-    fn push(&mut self, target: BoxedData, key: Option<BoxedData>) -> Result {
-        let link = LinkEntry::<_, F> {
-            link: MaybeKeyed::new(key, target),
-            state: self.state,
-        };
-        self.fmt_set.entry(&link);
-
-        CONTINUE
-    }
-
-    #[inline]
-    fn push_keyed(&mut self, target: BoxedData, key: BoxedData) -> Result {
-        let link = LinkEntry::<_, F> {
-            link: (key, target),
-            state: self.state,
-        };
-        self.fmt_set.entry(&link);
-
-        CONTINUE
-    }
-
-    #[inline]
-    fn push_unkeyed(&mut self, target: BoxedData) -> Result {
-        let link = LinkEntry::<_, F> {
-            link: target,
-            state: self.state,
-        };
-        self.fmt_set.entry(&link);
-
-        CONTINUE
-    }
-}
-
-struct DebugReceiver<'a, 'b, 'c, F: Format + ?Sized> {
-    set: &'a mut fmt::DebugSet<'b, 'c>,
-    state: F::State,
-}
-
-#[warn(clippy::missing_trait_methods)]
-impl<F: Format + ?Sized> Receiver for DebugReceiver<'_, '_, '_, F> {
-    #[inline]
-    fn bool(&mut self, value: bool) {
-        if value {
-            self.set.entry(&format_args!("bool: true"));
-        } else {
-            self.set.entry(&format_args!("bool: false"));
-        }
-    }
-    #[inline]
-    fn u8(&mut self, value: u8) {
-        self.set.entry(&format_args!("u8: {value}"));
-    }
-    #[inline]
-    fn i8(&mut self, value: i8) {
-        self.set.entry(&format_args!("i8: {value}"));
-    }
-    #[inline]
-    fn u16(&mut self, value: u16) {
-        self.set.entry(&format_args!("u16: {value}"));
-    }
-    #[inline]
-    fn i16(&mut self, value: i16) {
-        self.set.entry(&format_args!("i16: {value}"));
-    }
-    #[inline]
-    fn u32(&mut self, value: u32) {
-        self.set.entry(&format_args!("u32: {value}"));
-    }
-    #[inline]
-    fn i32(&mut self, value: i32) {
-        self.set.entry(&format_args!("i32: {value}"));
-    }
-    #[inline]
-    fn u64(&mut self, value: u64) {
-        self.set.entry(&format_args!("u64: {value}"));
-    }
-    #[inline]
-    fn i64(&mut self, value: i64) {
-        self.set.entry(&format_args!("i64: {value}"));
-    }
-    #[inline]
-    fn u128(&mut self, value: u128) {
-        self.set.entry(&format_args!("u128: {value}"));
-    }
-    #[inline]
-    fn i128(&mut self, value: i128) {
-        self.set.entry(&format_args!("i128: {value}"));
-    }
-    #[inline]
-    fn f32(&mut self, value: f32) {
-        self.set.entry(&format_args!("f32: {value}"));
-    }
-    #[inline]
-    fn f64(&mut self, value: f64) {
-        self.set.entry(&format_args!("f64: {value}"));
-    }
-
-    #[inline]
-    fn char(&mut self, value: char) {
-        self.set.entry(&format_args!("char: {value:?}"));
-    }
-
-    #[inline]
-    fn str(&mut self, value: &str) {
-        struct StrEntry<'a, F: Format + ?Sized>(&'a str, F::State);
-        impl<F: Format + ?Sized> Debug for StrEntry<'_, F> {
-            #[inline]
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                f.write_str("str: ")?;
-                F::fmt_str(f, self.0, self.1)
-            }
-        }
-        self.set.entry(&StrEntry::<F>(value, self.state));
-    }
-
-    #[inline]
-    fn str_owned(&mut self, value: String) {
-        self.str(&value);
-    }
-
-    #[inline]
-    fn bytes(&mut self, value: &[u8]) {
-        struct BytesEntry<'a, F: Format + ?Sized>(&'a [u8], F::State);
-        impl<F: Format + ?Sized> Debug for BytesEntry<'_, F> {
-            #[inline]
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                f.write_str("bytes: ")?;
-                F::fmt_bytes(f, self.0, self.1)
-            }
-        }
-        self.set.entry(&BytesEntry::<F>(value, self.state));
-    }
-
-    #[inline]
-    fn bytes_owned(&mut self, value: Vec<u8>) {
-        self.bytes(&value);
-    }
-
-    #[inline]
-    fn other_ref(&mut self, value: &dyn std::any::Any) {
-        if F::HIDE_UNKNOWN && F::HIDE_META {
-            return;
-        }
-
-        if !F::HIDE_META && meta::META_TYPES.accepts(value) {
-            let info = meta::MetaInfo::about_val(value);
-            self.set.entry(&format_args!("{info}"));
-            return;
-        }
-
-        self.set.entry(&format_args!("{{unknown}}"));
-    }
-
-    #[inline]
-    fn other_boxed(&mut self, value: Box<dyn std::any::Any>) {
-        self.other_ref(&*value);
-    }
-
-    #[inline]
-    fn accepting() -> impl crate::rr::TypeFilter + 'static {
-        crate::rr::filter::Any
-    }
-}
 pub trait Ellipsable {
     fn ellipse<F: Format + ?Sized>(&self) -> impl Display;
 }
@@ -611,10 +228,238 @@ where
     }
 }
 
+struct Indenter<W> {
+    buf: W,
+    pending: Option<()>,
+}
+
+impl<W> From<W> for Indenter<W> {
+    #[inline]
+    fn from(buf: W) -> Self {
+        Self {
+            buf,
+            pending: Some(()),
+        }
+    }
+}
+
+impl<W: fmt::Write> Indenter<W> {
+    #[inline]
+    fn write_indented(&mut self, s: &str, indent: &str) -> fmt::Result {
+        for line in s.split_inclusive('\n') {
+            if self.pending.is_some() {
+                self.buf.write_str(indent)?;
+            }
+            self.pending = line.ends_with('\n').then(|| ());
+            self.buf.write_str(line)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl<W: fmt::Write> fmt::Write for Indenter<W> {
+    #[inline]
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.write_indented(s, "  ")
+    }
+}
+
+#[must_use]
+pub struct DataFormatter<W: Write, F: Format + ?Sized = DEBUG> {
+    buf: W,
+    state: F::State,
+    link: Option<(String, String)>,
+    has_fields: bool,
+    finished: bool,
+}
+
+impl<W, F> fmt::Debug for DataFormatter<W, F>
+where
+    W: Write,
+    F: Format + ?Sized,
+{
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("DataFormatter")
+            .field("buf", &format_args!("{}", core::any::type_name::<W>()))
+            .field("state", &self.state)
+            .field("link", &self.link)
+            .finish()
+    }
+}
+
+impl<W: Write, F: Format + ?Sized> DataFormatter<W, F> {
+    #[inline]
+    #[must_use]
+    pub fn new(buf: W) -> Self {
+        Self {
+            buf,
+            state: F::init_state(),
+            link: None,
+            has_fields: false,
+            finished: false,
+        }
+    }
+
+    fn new_with_state(buf: W, state: F::State) -> Self {
+        Self {
+            buf,
+            state,
+            link: None,
+            has_fields: false,
+            finished: false,
+        }
+    }
+
+    #[inline]
+    pub fn field(&mut self, f: impl FnOnce(Indenter<&mut W>) -> fmt::Result) -> fmt::Result {
+        if self.has_fields {
+            self.buf.write_str(",\n")?;
+        } else {
+            self.buf.write_str("{\n")?;
+            self.has_fields = true;
+        }
+        f(Indenter::from(&mut self.buf))?;
+        Ok(())
+    }
+
+    fn finalize_link(&mut self) -> fmt::Result {
+        if let Some((key, target)) = self.link.take() {
+            self.field(|mut f| {
+                if !key.is_empty() {
+                    f.write_str(&key)?;
+                    f.write_str(" => ")?;
+                }
+                f.write_str(&target)
+            })?;
+        }
+        Ok(())
+    }
+
+    #[inline]
+    pub fn finish(&mut self) -> fmt::Result {
+        if self.finished {
+            return Ok(());
+        }
+        self.finished = true;
+        self.finalize_link()?;
+        if self.has_fields {
+            self.buf.write_str("\n}")?;
+        }
+        Ok(())
+    }
+}
+
+#[warn(clippy::missing_trait_methods)]
+#[allow(unused_must_use)]
+impl<W: Write, F: Format + ?Sized> Receiver for DataFormatter<W, F> {
+    fn bool(&mut self, value: bool) {
+        F::fmt_value(self, crate::value::Value::Bool(value));
+    }
+    fn bytes(&mut self, value: &[u8]) {
+        F::fmt_value(self, crate::value::Value::Bytes(value.into()));
+    }
+    fn bytes_owned(&mut self, value: Box<[u8]>) {
+        F::fmt_value(self, crate::value::Value::Bytes(value.into()));
+    }
+    fn char(&mut self, value: char) {
+        F::fmt_value(self, crate::value::Value::Char(value));
+    }
+    fn str(&mut self, value: &str) {
+        F::fmt_value(self, crate::value::Value::String(value.into()));
+    }
+    fn str_owned(&mut self, value: Box<str>) {
+        F::fmt_value(self, crate::value::Value::String(value.into()));
+    }
+    fn u8(&mut self, value: u8) {
+        F::fmt_value(self, crate::value::Value::U8(value));
+    }
+    fn i8(&mut self, value: i8) {
+        F::fmt_value(self, crate::value::Value::I8(value));
+    }
+    fn u16(&mut self, value: u16) {
+        F::fmt_value(self, crate::value::Value::U16(value));
+    }
+    fn i16(&mut self, value: i16) {
+        F::fmt_value(self, crate::value::Value::I16(value));
+    }
+    fn u32(&mut self, value: u32) {
+        F::fmt_value(self, crate::value::Value::U32(value));
+    }
+    fn i32(&mut self, value: i32) {
+        F::fmt_value(self, crate::value::Value::I32(value));
+    }
+    fn u64(&mut self, value: u64) {
+        F::fmt_value(self, crate::value::Value::U64(value));
+    }
+    fn i64(&mut self, value: i64) {
+        F::fmt_value(self, crate::value::Value::I64(value));
+    }
+    fn u128(&mut self, value: u128) {
+        F::fmt_value(self, crate::value::Value::U128(value));
+    }
+    fn i128(&mut self, value: i128) {
+        F::fmt_value(self, crate::value::Value::I128(value));
+    }
+    fn f32(&mut self, value: f32) {
+        F::fmt_value(self, crate::value::Value::F32(value));
+    }
+    fn f64(&mut self, value: f64) {
+        F::fmt_value(self, crate::value::Value::F64(value));
+    }
+    fn other_ref(&mut self, value: &dyn std::any::Any) {
+        F::fmt_other(self, value);
+    }
+    fn other_boxed(&mut self, value: Box<dyn std::any::Any>) {
+        F::fmt_value(self, crate::value::Value::Other(value));
+    }
+}
+
+impl<W: Write, F: Format + ?Sized> Query for DataFormatter<W, F> {
+    type Receiver<'q> = &'q mut Self where Self:'q;
+    type Filter<'q> = crate::filter::Any where Self:'q;
+    type TargetQuery<'q> = DataFormatter<&'q mut String,F> where Self:'q;
+    type KeyQuery<'q> = DataFormatter<&'q mut String,F> where Self:'q;
+
+    #[inline]
+    fn receiver(&mut self) -> Self::Receiver<'_> {
+        self
+    }
+
+    #[inline]
+    fn filter(&self) -> Self::Filter<'_> {
+        crate::filter::Any
+    }
+
+    #[inline]
+    fn link_query(&mut self) -> (Self::TargetQuery<'_>, Self::KeyQuery<'_>) {
+        let _ = self.finalize_link();
+        let (key, target) = self
+            .link
+            .get_or_insert_with(|| (String::new(), String::new()));
+
+        let key_state = F::enter_key(self.state);
+        let target_state = F::enter_target(self.state);
+
+        let target = DataFormatter::new_with_state(target, target_state);
+        let key = DataFormatter::new_with_state(key, key_state);
+
+        (target, key)
+    }
+}
+
+impl<W: Write, F: Format + ?Sized> Drop for DataFormatter<W, F> {
+    fn drop(&mut self) {
+        let _ = self.finish();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::data::DataExt;
+    use crate::ErasedData;
 
     #[test]
     fn keyed_and_unkeyed() {
@@ -622,41 +467,46 @@ mod tests {
         struct Keyed;
 
         impl Data for Unkeyed {
-            fn provide_links(&self, links: &mut dyn Links) -> Result<()> {
-                links.push_unkeyed(Box::new("foo") as BoxedData)?;
-                Ok(())
+            fn query(&self, request: &mut impl crate::Request) {
+                request.push_link(crate::link::Unkeyed("foo"))
             }
         }
 
         impl Data for Keyed {
-            fn provide_links(&self, links: &mut dyn Links) -> Result<()> {
-                links.push_keyed(Box::new(()) as BoxedData, Box::new("foo") as BoxedData)?;
-                Ok(())
+            fn query(&self, request: &mut impl crate::Request) {
+                request.push_link(((), "bar"));
             }
         }
 
         let unkeyed = Unkeyed;
         let keyed = Keyed;
 
-        let debug_unkeyed = FormattableData::<DEBUG, _>::from(&unkeyed).to_string();
-        let debug_keyed = FormattableData::<DEBUG, _>::from(&keyed).to_string();
+        let mut debug_unkeyed = String::new();
+        let mut debug_keyed = String::new();
+
+        unkeyed.query(&mut DataFormatter::<_>::new(&mut debug_unkeyed));
+        keyed.query(&mut DataFormatter::<_>::new(&mut debug_keyed));
+
+        dbg!(&debug_unkeyed);
+        dbg!(&debug_keyed);
+
+        // assert!(false);
 
         assert_ne!(debug_unkeyed, debug_keyed);
     }
 
     #[test]
-    #[ignore]
     #[cfg(feature = "std")]
     fn debug_vec() {
         let v = vec![1, 2, 3];
 
-        let data = &v as &dyn Data;
+        let data = &v as &ErasedData;
         // let list = DataExt::as_list(&data);
 
         dbg!(data);
         // dbg!(&list);
 
-        assert!(false);
+        // assert!(false);
     }
 
     #[test]
@@ -668,7 +518,7 @@ mod tests {
         m.insert("key", "val");
         m.insert("key2", "val2");
 
-        let data: &dyn Data = &m;
+        let data: &ErasedData = &m;
         // let items = DataExt::as_items(&data);
 
         dbg!(data);
@@ -689,7 +539,7 @@ mod tests {
         let mut m2 = HashMap::new();
         m2.insert("key", m);
 
-        let data: &dyn Data = &m2;
+        let data: &ErasedData = &m2;
 
         dbg!(data);
 

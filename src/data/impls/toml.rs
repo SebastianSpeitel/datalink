@@ -111,10 +111,7 @@ impl Data for Offset {
     fn query(&self, request: &mut impl Request) {
         request.provide_ref_unchecked(self);
 
-        if true {
-            // check if query requests String
-            request.provide_string(self.to_string());
-        }
+        request.provide_with(|| self.to_string());
 
         match *self {
             Self::Z => 0i16.query(request),

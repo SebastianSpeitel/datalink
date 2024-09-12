@@ -4,7 +4,7 @@ use crate::Request;
 pub mod constant;
 pub mod erased;
 mod ext;
-// pub mod format;
+pub mod format;
 mod impls;
 #[cfg(feature = "unique")]
 pub mod unique;
@@ -70,6 +70,7 @@ pub trait Data {
 #[derive(Debug, Clone, Copy)]
 pub struct EnsuredErasable<D>(pub D);
 
+#[warn(clippy::missing_trait_methods)]
 impl<D: Data + 'static> Data for EnsuredErasable<D> {
     #[inline]
     fn query(&self, request: &mut impl Request) {
@@ -83,5 +84,9 @@ impl<D: Data + 'static> Data for EnsuredErasable<D> {
             return;
         }
         self.0.query_owned(request);
+    }
+    #[inline]
+    fn get_id(&self) -> Option<crate::id::ID> {
+        self.0.get_id()
     }
 }

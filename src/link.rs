@@ -1,6 +1,6 @@
 use core::convert::Infallible;
 
-use crate::{data::DataExt, Data, LinkQuery};
+use crate::{data::DataExt, Data, Query};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Nothing;
@@ -48,20 +48,15 @@ impl<T, N> From<Optional<T, N>> for Option<T> {
 }
 
 pub trait Link {
-    type Key: Data;
-    type Target: Data + ?Sized;
-
-    fn query(&self, query: impl LinkQuery);
+    fn query(&self, target_query: impl Query, key_query: impl Query);
 
     #[inline]
-    fn query_owned(self, query: impl LinkQuery)
+    fn query_owned(self, target_query: impl Query, key_query: impl Query)
     where
         Self: Sized,
     {
-        self.query(query);
+        self.query(target_query, key_query);
     }
-
-    fn into_tuple(self) -> (Optional<Self::Key, impl Copy>, Self::Target);
 }
 
 impl<K, T> Link for (K, T)
@@ -69,30 +64,22 @@ where
     K: Data + ToOwned<Owned: Data + 'static>,
     T: Data + ToOwned<Owned: Data + 'static>,
 {
-    type Key = K;
-    type Target = T;
-
     #[inline]
-    fn query(&self, mut query: impl LinkQuery) {
-        self.0.query(&mut query.key_query());
-        self.1.query(&mut query.target_query());
+    fn query(&self, mut target_query: impl Query, mut key_query: impl Query) {
+        self.0.query(&mut key_query);
+        self.1.query(&mut target_query);
     }
 
     #[inline]
-    fn query_owned(self, mut query: impl LinkQuery) {
+    fn query_owned(self, mut target_query: impl Query, mut key_query: impl Query) {
         self.0
             .to_owned()
             .ensure_erasablity()
-            .query_owned(&mut query.key_query());
+            .query_owned(&mut key_query);
         self.1
             .to_owned()
             .ensure_erasablity()
-            .query_owned(&mut query.target_query());
-    }
-
-    #[inline]
-    fn into_tuple(self) -> (Optional<Self::Key, impl Copy>, Self::Target) {
-        (Optional::always(self.0), self.1)
+            .query_owned(&mut target_query);
     }
 }
 
@@ -103,24 +90,16 @@ impl<T> Link for Unkeyed<T>
 where
     T: Data + ToOwned<Owned: Data + 'static>,
 {
-    type Key = core::convert::Infallible;
-    type Target = T;
-
     #[inline]
-    fn query(&self, mut query: impl LinkQuery) {
-        self.0.query(&mut query.target_query());
+    fn query(&self, mut query: impl Query, _: impl Query) {
+        self.0.query(&mut query);
     }
 
     #[inline]
-    fn query_owned(self, mut query: impl LinkQuery) {
+    fn query_owned(self, mut query: impl Query, _: impl Query) {
         self.0
             .to_owned()
             .ensure_erasablity()
-            .query_owned(&mut query.target_query());
-    }
-
-    #[inline]
-    fn into_tuple(self) -> (Optional<Self::Key, impl Copy>, Self::Target) {
-        (Optional::never(), self.0)
+            .query_owned(&mut query);
     }
 }

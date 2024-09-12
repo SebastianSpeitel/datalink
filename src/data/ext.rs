@@ -1,4 +1,4 @@
-use crate::{Data, DataQuery, ErasedData, LinkQuery};
+use crate::{Data, ErasedData, Query};
 
 pub trait DataExt: Data {
     #[inline]
@@ -6,7 +6,7 @@ pub trait DataExt: Data {
     fn as_<T>(&self) -> Option<T>
     where
         Self: Sized,
-        Option<T>: DataQuery,
+        Option<T>: Query,
     {
         let mut query = None;
         self.query(&mut query);
@@ -265,8 +265,9 @@ pub trait DataExt: Data {
             }
         }
 
-        impl DataQuery for Number {
-            type LinkQuery<'q> = ();
+        impl Query for Number {
+            type KeyQuery<'q> = ();
+            type TargetQuery<'q> = ();
             type Receiver<'q> = &'q mut Self;
             type Filter<'q> = crate::filter::AnyOf<(
                 bool,
@@ -287,7 +288,9 @@ pub trait DataExt: Data {
                 String,
             )>;
 
-            fn link_query(&mut self) -> Self::LinkQuery<'_> {}
+            fn link_query(&mut self) -> (Self::TargetQuery<'_>, Self::KeyQuery<'_>) {
+                ((), ())
+            }
 
             fn receiver(&mut self) -> Self::Receiver<'_> {
                 self
@@ -304,7 +307,7 @@ pub trait DataExt: Data {
         query.0
     }
 
-    /// Collects all links without a key into a vec.
+    /// Collects all links into a vec discarding possible keys.
     ///
     /// Note:
     /// There is no guarantee that the order of the links is preserved.
@@ -335,32 +338,21 @@ pub trait DataExt: Data {
                 if let (false, Some(t)) = (self.has_key, self.next_target.take()) {
                     self.items.push(t);
                 }
+                self.has_key = false;
             }
         }
 
-        impl LinkQuery for Items {
+        impl Query for Items {
+            type Receiver<'q> = () where Self:'q;
             type KeyQuery<'q> = () where Self:'q;
             type TargetQuery<'q> = &'q mut Option<Box<ErasedData>> where Self:'q;
-
-            fn key_query(&mut self) -> Self::KeyQuery<'_> {
-                self.has_key = true;
-            }
-
-            fn target_query(&mut self) -> Self::TargetQuery<'_> {
-                &mut self.next_target
-            }
-        }
-
-        impl DataQuery for Items {
-            type Receiver<'q> = () where Self:'q;
-            type LinkQuery<'q> = &'q mut Self where Self:'q;
             type Filter<'q> = crate::filter::AnyOf<()> where Self:'q;
 
             fn receiver(&mut self) -> Self::Receiver<'_> {}
 
-            fn link_query(&mut self) -> Self::LinkQuery<'_> {
+            fn link_query(&mut self) -> (Self::TargetQuery<'_>, Self::KeyQuery<'_>) {
                 self.try_push();
-                self
+                (&mut self.next_target, ())
             }
 
             fn filter(&self) -> Self::Filter<'_> {
@@ -379,7 +371,7 @@ pub trait DataExt: Data {
         req.items
     }
 
-    /// Collects all links with a key into a vec.
+    /// Collects all links *with* a key into a vec.
     ///
     /// Note:
     /// There is no guarantee that the order of the links is preserved.
@@ -415,29 +407,17 @@ pub trait DataExt: Data {
             }
         }
 
-        impl LinkQuery for Items {
+        impl Query for Items {
+            type Receiver<'q> = () where Self:'q;
             type KeyQuery<'q> = &'q mut Option<Box<ErasedData>> where Self:'q;
             type TargetQuery<'q> = &'q mut Option<Box<ErasedData>> where Self:'q;
-
-            fn key_query(&mut self) -> Self::KeyQuery<'_> {
-                &mut self.next_key
-            }
-
-            fn target_query(&mut self) -> Self::TargetQuery<'_> {
-                &mut self.next_target
-            }
-        }
-
-        impl DataQuery for Items {
-            type Receiver<'q> = () where Self:'q;
-            type LinkQuery<'q> = &'q mut Self where Self:'q;
             type Filter<'q> = crate::filter::AnyOf<()> where Self:'q;
 
             fn receiver(&mut self) -> Self::Receiver<'_> {}
 
-            fn link_query(&mut self) -> Self::LinkQuery<'_> {
+            fn link_query(&mut self) -> (Self::TargetQuery<'_>, Self::KeyQuery<'_>) {
                 self.try_push();
-                self
+                (&mut self.next_target, &mut self.next_key)
             }
 
             fn filter(&self) -> Self::Filter<'_> {
@@ -502,26 +482,15 @@ pub trait DataExt: Data {
     fn has_links(&self) -> bool {
         struct HasLinks(bool);
 
-        impl LinkQuery for HasLinks {
-            type KeyQuery<'q> = &'q mut Self;
-            type TargetQuery<'q> = &'q mut Self;
-
-            fn key_query(&mut self) -> Self::KeyQuery<'_> {
-                self
-            }
-
-            fn target_query(&mut self) -> Self::TargetQuery<'_> {
-                self
-            }
-        }
-
-        impl DataQuery for HasLinks {
+        impl Query for HasLinks {
             type Receiver<'q> = ();
-            type LinkQuery<'q> = &'q mut Self;
+            type KeyQuery<'q> = ();
+            type TargetQuery<'q> = ();
             type Filter<'q> = crate::filter::AnyOf<()>;
 
-            fn link_query(&mut self) -> Self::LinkQuery<'_> {
-                self
+            fn link_query(&mut self) -> (Self::TargetQuery<'_>, Self::KeyQuery<'_>) {
+                self.0 = true;
+                ((), ())
             }
 
             fn receiver(&mut self) -> Self::Receiver<'_> {}
@@ -549,16 +518,11 @@ pub trait DataExt: Data {
     #[allow(unused_variables)]
     #[inline]
     #[must_use]
-    fn format<F: Format>(&self) -> FormattableData<F, F> {
-        // self.into()
-        todo!()
+    fn format<F: crate::data::format::Format>(
+        &self,
+    ) -> crate::data::format::FormattableData<F, Self> {
+        self.into()
     }
-}
-
-trait Format {}
-struct FormattableData<F: Format, D: ?Sized> {
-    fmt: F,
-    data: D,
 }
 
 impl<T: Data + ?Sized> DataExt for T {}
@@ -577,7 +541,7 @@ mod tests {
         assert_eq!(DataExt::as_string(&m), None);
 
         let as_vec = DataExt::as_list(&m);
-        assert_eq!(as_vec.len(), 0);
+        assert_eq!(as_vec.len(), 1);
     }
 
     #[test]

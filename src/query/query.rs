@@ -1,21 +1,32 @@
-use super::{
-    filter::ValidErasedFilter, ErasedLinkQuery, ErasedReceiver, LinkQuery, Receiver, TypeFilter,
-};
+use super::{filter::ValidErasedFilter, ErasedReceiver, Receiver, TypeFilter};
 
-pub trait DataQuery {
+pub trait Query {
     type Receiver<'q>: Receiver
-    where
-        Self: 'q;
-    type LinkQuery<'q>: LinkQuery
     where
         Self: 'q;
     type Filter<'q>: TypeFilter
     where
         Self: 'q;
+    type KeyQuery<'q>: Query
+    where
+        Self: 'q;
+    type TargetQuery<'q>: Query
+    where
+        Self: 'q;
 
     fn receiver(&mut self) -> Self::Receiver<'_>;
-    fn link_query(&mut self) -> Self::LinkQuery<'_>;
     fn filter(&self) -> Self::Filter<'_>;
+    fn link_query(&mut self) -> (Self::TargetQuery<'_>, Self::KeyQuery<'_>);
+
+    #[inline]
+    fn key_query(&mut self) -> Self::KeyQuery<'_> {
+        self.link_query().1
+    }
+
+    #[inline]
+    fn target_query(&mut self) -> Self::TargetQuery<'_> {
+        self.link_query().0
+    }
 
     #[inline]
     fn is_erasing(&self) -> bool {
@@ -23,26 +34,37 @@ pub trait DataQuery {
     }
 
     #[inline]
-    fn into_erased<'q>(self) -> ErasedDataQuery<'q>
+    fn into_erased<'q>(self) -> ErasedQuery<'q>
     where
         Self: Sized + 'q,
     {
-        ErasedDataQuery::new(self)
+        ErasedQuery::new(self)
     }
 }
 
 #[warn(clippy::missing_trait_methods)]
-impl<Q> DataQuery for &mut Q
+impl<Q> Query for &mut Q
 where
-    Q: DataQuery + ?Sized,
+    Q: Query + ?Sized,
 {
     type Receiver<'q> = Q::Receiver<'q> where Self:'q;
-    type LinkQuery<'q> = Q::LinkQuery<'q> where Self:'q;
     type Filter<'q> = Q::Filter<'q> where Self:'q;
+    type KeyQuery<'q> = Q::KeyQuery<'q> where Self:'q;
+    type TargetQuery<'q> = Q::TargetQuery<'q> where Self:'q;
 
     #[inline]
-    fn link_query(&mut self) -> Self::LinkQuery<'_> {
+    fn link_query(&mut self) -> (Self::TargetQuery<'_>, Self::KeyQuery<'_>) {
         (**self).link_query()
+    }
+
+    #[inline]
+    fn key_query(&mut self) -> Self::KeyQuery<'_> {
+        (**self).key_query()
+    }
+
+    #[inline]
+    fn target_query(&mut self) -> Self::TargetQuery<'_> {
+        (**self).target_query()
     }
 
     #[inline]
@@ -61,28 +83,28 @@ where
     }
 
     #[inline]
-    fn into_erased<'q>(self) -> ErasedDataQuery<'q>
+    fn into_erased<'q>(self) -> ErasedQuery<'q>
     where
         Self: 'q,
     {
-        ErasedDataQuery::new(self)
+        ErasedQuery::new(self)
     }
 }
 
 #[derive(Debug)]
-pub struct ErasedDataQuery<'q> {
+pub struct ErasedQuery<'q> {
     erase_data: bool,
-    query: Option<Box<dyn ErasableDataQuery + 'q>>,
+    query: Option<Box<dyn ErasableQuery + 'q>>,
 }
 
-impl Default for ErasedDataQuery<'_> {
+impl Default for ErasedQuery<'_> {
     #[inline]
     fn default() -> Self {
         Self::noop()
     }
 }
 
-impl<'q> ErasedDataQuery<'q> {
+impl<'q> ErasedQuery<'q> {
     #[inline]
     #[must_use]
     pub const fn noop() -> Self {
@@ -96,7 +118,7 @@ impl<'q> ErasedDataQuery<'q> {
     #[must_use]
     pub fn new<Q>(query: Q) -> Self
     where
-        Q: DataQuery + 'q,
+        Q: Query + 'q,
     {
         Self {
             erase_data: query.is_erasing(),
@@ -105,15 +127,15 @@ impl<'q> ErasedDataQuery<'q> {
     }
 }
 
-trait ErasableDataQuery {
+trait ErasableQuery {
     fn erased_receiver(&mut self) -> ErasedReceiver;
-    fn erased_link_query(&mut self) -> ErasedLinkQuery;
     fn erased_filter(&self) -> ValidErasedFilter;
+    fn erased_link_query(&mut self) -> (ErasedQuery, ErasedQuery);
 }
 
-impl<Q> ErasableDataQuery for Q
+impl<Q> ErasableQuery for Q
 where
-    Q: DataQuery + ?Sized,
+    Q: Query + ?Sized,
 {
     #[inline]
     fn erased_receiver(&mut self) -> ErasedReceiver {
@@ -124,8 +146,11 @@ where
     }
 
     #[inline]
-    fn erased_link_query(&mut self) -> ErasedLinkQuery {
-        LinkQuery::into_erased(self.link_query())
+    fn erased_link_query(&mut self) -> (ErasedQuery, ErasedQuery) {
+        let (target, key) = self.link_query();
+        let target = Query::into_erased(target);
+        let key = Query::into_erased(key);
+        (target, key)
     }
 
     #[inline]
@@ -134,17 +159,18 @@ where
     }
 }
 
-impl core::fmt::Debug for dyn ErasableDataQuery + '_ {
+impl core::fmt::Debug for dyn ErasableQuery + '_ {
     #[inline]
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("ErasableDataQuery").finish_non_exhaustive()
+        f.debug_struct("ErasedQuery").finish_non_exhaustive()
     }
 }
 
-impl DataQuery for ErasedDataQuery<'_> {
+impl Query for ErasedQuery<'_> {
     type Receiver<'q> = ErasedReceiver<'q> where Self:'q;
-    type LinkQuery<'q> = ErasedLinkQuery<'q> where Self:'q;
     type Filter<'q> = ValidErasedFilter<'q> where Self:'q;
+    type KeyQuery<'q> = ErasedQuery<'q> where Self:'q;
+    type TargetQuery<'q> = ErasedQuery<'q> where Self:'q;
 
     #[inline]
     fn receiver(&mut self) -> Self::Receiver<'_> {
@@ -155,7 +181,7 @@ impl DataQuery for ErasedDataQuery<'_> {
     }
 
     #[inline]
-    fn link_query(&mut self) -> Self::LinkQuery<'_> {
+    fn link_query(&mut self) -> (Self::TargetQuery<'_>, Self::KeyQuery<'_>) {
         self.query
             .as_mut()
             .map(|q| (**q).erased_link_query())
@@ -176,7 +202,7 @@ impl DataQuery for ErasedDataQuery<'_> {
     }
 
     #[inline]
-    fn into_erased<'q>(self) -> ErasedDataQuery<'q>
+    fn into_erased<'q>(self) -> ErasedQuery<'q>
     where
         Self: 'q,
     {
@@ -184,16 +210,19 @@ impl DataQuery for ErasedDataQuery<'_> {
     }
 }
 
-impl DataQuery for () {
+impl Query for () {
     type Receiver<'q> = ();
-    type LinkQuery<'q> = ();
     type Filter<'q> = super::filter::Only<()>;
-
-    #[inline]
-    fn link_query(&mut self) -> Self::LinkQuery<'_> {}
+    type KeyQuery<'q> = ();
+    type TargetQuery<'q> = ();
 
     #[inline]
     fn receiver(&mut self) -> Self::Receiver<'_> {}
+
+    #[inline]
+    fn link_query(&mut self) -> (Self::TargetQuery<'_>, Self::KeyQuery<'_>) {
+        ((), ())
+    }
 
     #[inline]
     fn filter(&self) -> Self::Filter<'_> {
@@ -201,17 +230,20 @@ impl DataQuery for () {
     }
 }
 
-impl<T> DataQuery for Option<T>
+impl<T> Query for Option<T>
 where
     T: 'static,
     Option<T>: Receiver,
 {
-    type LinkQuery<'q> = () where Self:'q;
     type Receiver<'q> = &'q mut Self where Self:'q;
     type Filter<'q> = super::filter::AcceptedBy<Option<T>>;
+    type KeyQuery<'q> = ();
+    type TargetQuery<'q> = ();
 
     #[inline]
-    fn link_query(&mut self) -> Self::LinkQuery<'_> {}
+    fn link_query(&mut self) -> (Self::TargetQuery<'_>, Self::KeyQuery<'_>) {
+        ((), ())
+    }
 
     #[inline]
     fn receiver(&mut self) -> Self::Receiver<'_> {
@@ -229,14 +261,14 @@ where
     }
 
     #[inline]
-    fn into_erased<'q>(self) -> ErasedDataQuery<'q>
+    fn into_erased<'q>(self) -> ErasedQuery<'q>
     where
         Self: 'q,
     {
         if self.is_some() {
-            ErasedDataQuery::noop()
+            ErasedQuery::noop()
         } else {
-            ErasedDataQuery::new(self)
+            ErasedQuery::new(self)
         }
     }
 }

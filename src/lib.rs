@@ -22,7 +22,8 @@ pub use datalink_derive::Data;
 pub mod id;
 
 pub use data::{erased::ErasedData, Data};
-pub use query::{filter, DataQuery, LinkQuery, Receiver, TypeFilter};
+pub use link::Link;
+pub use query::{filter, Query, Receiver, TypeFilter};
 pub use request::Request;
 
 pub mod prelude {

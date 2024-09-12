@@ -1,6 +1,6 @@
 use core::any::Any;
 
-use crate::{Data, DataQuery, Receiver, Request, TypeFilter};
+use crate::{Data, Query, Receiver, Request, TypeFilter};
 
 #[derive(Debug)]
 pub enum Value {
@@ -186,6 +186,30 @@ impl Data for Value {
             Self::U8(n) => n.query(req),
         }
     }
+    #[inline]
+    fn query_owned(self, req: &mut impl Request) {
+        match self {
+            Self::Bool(b) => b.query(req),
+            Self::Bytes(b) => b.query(req),
+            Self::Char(c) => c.query(req),
+            Self::F32(n) => n.query(req),
+            Self::F64(n) => n.query(req),
+            Self::False => false.query(req),
+            Self::I128(n) => n.query(req),
+            Self::I16(n) => n.query(req),
+            Self::I32(n) => n.query(req),
+            Self::I64(n) => n.query(req),
+            Self::I8(n) => n.query(req),
+            Self::Other(o) => o.query(req),
+            Self::String(s) => s.query(req),
+            Self::True => true.query(req),
+            Self::U128(n) => n.query(req),
+            Self::U16(n) => n.query(req),
+            Self::U32(n) => n.query(req),
+            Self::U64(n) => n.query(req),
+            Self::U8(n) => n.query(req),
+        }
+    }
 }
 
 impl std::fmt::Display for Value {
@@ -318,13 +342,16 @@ impl Receiver for AllValues {
     }
 }
 
-impl DataQuery for AllValues {
-    type LinkQuery<'q> = ();
+impl Query for AllValues {
     type Receiver<'q> = &'q mut Self;
     type Filter<'q> = crate::filter::Any;
+    type KeyQuery<'q> = ();
+    type TargetQuery<'q> = ();
 
     #[inline]
-    fn link_query(&mut self) -> Self::LinkQuery<'_> {}
+    fn link_query(&mut self) -> (Self::TargetQuery<'_>, Self::KeyQuery<'_>) {
+        ((), ())
+    }
 
     #[inline]
     fn receiver(&mut self) -> Self::Receiver<'_> {

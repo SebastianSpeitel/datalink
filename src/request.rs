@@ -1,9 +1,9 @@
 use crate::{
     link::Link,
-    query::{DataQuery, ErasedDataQuery, Receiver, TypeFilter},
+    query::{ErasedQuery, Query, Receiver, TypeFilter},
 };
 
-pub type ErasedRequest<'q> = ErasedDataQuery<'q>;
+pub type ErasedRequest<'q> = ErasedQuery<'q>;
 
 macro_rules! match_type {
     (@make_ty $ty:ty) => {$ty};
@@ -48,7 +48,7 @@ macro_rules! forward_fns {
 // }
 
 pub trait Request {
-    type Query: DataQuery + ?Sized;
+    type Query: Query + ?Sized;
 
     fn query_ref(&self) -> &Self::Query;
     fn provide_ref_unchecked<T: 'static>(&mut self, value: &T);
@@ -140,7 +140,7 @@ pub trait Request {
 
     #[inline]
     fn is_erasing(&self) -> bool {
-        DataQuery::is_erasing(self.query_ref())
+        Query::is_erasing(self.query_ref())
     }
 
     fn as_erased(&mut self) -> ErasedRequest
@@ -150,7 +150,7 @@ pub trait Request {
 
 impl<Q> Request for Q
 where
-    Q: DataQuery + ?Sized,
+    Q: Query + ?Sized,
 {
     type Query = Q;
 
@@ -306,15 +306,16 @@ where
 
     #[inline]
     fn push_link<L: Link>(&mut self, link: L) {
-        link.query_owned(self.link_query());
+        let (target, key) = self.link_query();
+        link.query_owned(target, key);
     }
 
     #[inline]
-    fn as_erased(&mut self) -> crate::query::ErasedDataQuery
+    fn as_erased(&mut self) -> crate::query::ErasedQuery
     where
         Self: Sized,
     {
-        self.into_erased()
+        Query::into_erased(self)
     }
 }
 
