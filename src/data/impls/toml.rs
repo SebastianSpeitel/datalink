@@ -122,7 +122,7 @@ impl Data for Offset {
 
 #[cfg(test)]
 mod tests {
-    use crate::data::DataExt;
+    use crate::{data::DataExt, ErasedData};
     use std::str::FromStr;
 
     use super::*;
@@ -154,5 +154,15 @@ mod tests {
         // dbg!(&items);
 
         assert_eq!(items.len(), 3);
+    }
+
+    #[test]
+    fn cargo_toml() {
+        let cargo_toml = String::from_utf8(include_bytes!("../../../Cargo.toml").to_vec()).unwrap();
+
+        let table = Table::from_str(&cargo_toml).unwrap();
+
+        dbg!(&table);
+        dbg!(&table as &ErasedData);
     }
 }
