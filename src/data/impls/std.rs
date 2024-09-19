@@ -22,10 +22,7 @@ mod path {
     impl Data for PathBuf {
         #[inline]
         fn query(&self, request: &mut impl Request) {
-            request.provide_ref_unchecked(self);
-
-            if true {
-                // check if query request &str
+            if request.requests_value_of::<&str>() || request.requests_value_of::<String>() {
                 self.to_string_lossy().query(request);
             }
 
@@ -37,10 +34,7 @@ mod path {
     impl Data for Path {
         #[inline]
         fn query(&self, request: &mut impl Request) {
-            // query.provide_other_ref(self);
-
-            if true {
-                // check if query request &str
+            if request.requests_value_of::<&str>() || request.requests_value_of::<String>() {
                 self.to_string_lossy().query(request);
             }
 
@@ -57,10 +51,7 @@ mod ffi {
     impl Data for OsString {
         #[inline]
         fn query(&self, request: &mut impl Request) {
-            request.provide_ref_unchecked(self);
-
-            if true {
-                // check if query request &str
+            if request.requests_value_of::<&str>() || request.requests_value_of::<String>() {
                 self.to_string_lossy().query(request);
             }
 
@@ -72,10 +63,7 @@ mod ffi {
     impl Data for OsStr {
         #[inline]
         fn query(&self, request: &mut impl Request) {
-            // query.provide_other_ref(self);
-
-            if true {
-                // check if query request &str
+            if request.requests_value_of::<&str>() || request.requests_value_of::<String>() {
                 self.to_string_lossy().query(request);
             }
 
@@ -100,15 +88,11 @@ mod net {
     impl Data for net::Ipv4Addr {
         #[inline]
         fn query(&self, request: &mut impl Request) {
-            request.provide_ref_unchecked(self);
-            if true {
-                // check if query requests u32
-                request.provide_u32(self.to_bits());
-            }
+            request.provide_with(|| self.to_bits());
+            request.provide_with(|| self.to_string());
 
-            if true {
-                // check if query requests String
-                request.provide_string(self.to_string());
+            if request.requests_value_of::<&[u8]>() {
+                request.provide_bytes(&self.octets());
             }
         }
     }
@@ -116,20 +100,11 @@ mod net {
     impl Data for net::Ipv6Addr {
         #[inline]
         fn query(&self, request: &mut impl Request) {
-            request.provide_ref_unchecked(self);
+            request.provide_with(|| self.octets());
+            request.provide_with(|| self.to_string());
 
-            if true {
-                request.provide_u128(self.to_bits());
-            }
-
-            if true {
-                // check if query requests bytes
-                // todo: provide owned array when possible
+            if request.requests_value_of::<&[u8]>() {
                 request.provide_bytes(&self.octets());
-            }
-
-            if true {
-                request.provide_string(self.to_string());
             }
         }
     }
@@ -137,7 +112,6 @@ mod net {
     impl Data for net::IpAddr {
         #[inline]
         fn query(&self, request: &mut impl Request) {
-            request.provide_ref_unchecked(self);
             request.provide_discriminant(self);
 
             match self {
@@ -150,14 +124,8 @@ mod net {
     impl Data for net::SocketAddrV4 {
         #[inline]
         fn query(&self, request: &mut impl Request) {
-            request.provide_ref_unchecked(self);
-            request.provide_ref_unchecked(self.ip());
-
-            if true {
-                request.provide_string(self.to_string());
-            }
-
-            request.push_link((IP, self.ip().to_owned()));
+            request.provide_with(|| self.to_string());
+            request.push_link((IP, *self.ip()));
             request.push_link((PORT, self.port()));
         }
     }
@@ -165,22 +133,17 @@ mod net {
     impl Data for net::SocketAddrV6 {
         #[inline]
         fn query(&self, request: &mut impl Request) {
-            request.provide_ref_unchecked(self);
-            request.provide_ref_unchecked(self.ip());
-
-            if true {
-                request.provide_string(self.to_string());
-            }
-
-            request.push_link((IP, self.ip().to_owned()));
+            request.provide_with(|| self.to_string());
+            request.push_link((IP, *self.ip()));
             request.push_link((PORT, self.port()));
+            request.push_link(("flowinfo", self.flowinfo()));
+            request.push_link(("scope_id", self.scope_id()));
         }
     }
 
     impl Data for net::SocketAddr {
         #[inline]
         fn query(&self, request: &mut impl Request) {
-            request.provide_ref_unchecked(self);
             request.provide_discriminant(self);
 
             match self {
@@ -218,7 +181,6 @@ where
     #[inline]
     fn query_owned(self, request: &mut impl Request) {
         for d in self {
-            // todo use Unkeyed
             request.push_link(crate::link::Unkeyed(d));
         }
     }

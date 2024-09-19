@@ -265,8 +265,8 @@ impl<D: Data> Data for std::sync::OnceLock<D> {
 impl Data for dyn core::any::Any {
     #[inline]
     fn query(&self, request: &mut impl Request) {
-        request.provide_ref_unchecked(&self.type_id());
-        // todo: provide other data
+        request.provide_with(|| self.type_id());
+        // todo: provide more information
     }
 }
 

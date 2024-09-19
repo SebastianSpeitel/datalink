@@ -54,8 +54,9 @@ where
 {
     #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
-        // self.format::<format::DEBUG>().fmt(f)
+        let mut formatter = super::format::DataFormatter::<_>::new(f);
+        (&self.0).query(&mut formatter);
+        formatter.finish()
     }
 }
 
