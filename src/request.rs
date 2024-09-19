@@ -61,7 +61,6 @@ pub trait Request {
 
     #[inline]
     fn requests<T: 'static + ?Sized>(&self, value: &T) -> bool {
-        dbg!(core::any::type_name_of_val(value));
         self.query_ref().filter().accepts(value)
     }
 
