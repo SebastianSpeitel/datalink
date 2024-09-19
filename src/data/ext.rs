@@ -508,9 +508,9 @@ pub trait DataExt: Data {
     }
 
     #[inline]
-    fn ensure_erasablity(self) -> crate::data::EnsuredErasable<Self>
+    fn ensure_erasablity(self) -> impl Data
     where
-        Self: Sized,
+        Self: Sized + 'static,
     {
         crate::data::EnsuredErasable(self)
     }
