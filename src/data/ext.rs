@@ -329,16 +329,14 @@ pub trait DataExt: Data {
         #[derive(Default)]
         struct Items {
             items: Vec<Box<ErasedData>>,
-            has_key: bool,
             next_target: Option<Box<ErasedData>>,
         }
 
         impl Items {
             fn try_push(&mut self) {
-                if let (false, Some(t)) = (self.has_key, self.next_target.take()) {
+                if let Some(t) = self.next_target.take() {
                     self.items.push(t);
                 }
-                self.has_key = false;
             }
         }
 
@@ -365,7 +363,6 @@ pub trait DataExt: Data {
         req.try_push();
 
         dbg!(req.items.len());
-        dbg!(req.has_key);
         dbg!(req.next_target.is_some());
 
         req.items
