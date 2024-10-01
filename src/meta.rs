@@ -57,6 +57,10 @@ impl MetaInfo {
             Some("IsNull")
         } else if self.0 == TypeId::of::<IsUnit>() {
             Some("IsUnit")
+        } else if self.0 == TypeId::of::<IsInfallible>() {
+            Some("IsInfallible")
+        } else if self.0 == TypeId::of::<IsEmptyCell>() {
+            Some("IsEmptyCell")
         } else {
             None
         }
@@ -77,6 +81,15 @@ impl From<TypeId> for MetaInfo {
     }
 }
 
-pub type MetaTypes = crate::filter::AnyOf<(IsNone, IsSome, IsBorrowed, IsNull, IsOwned, IsUnit)>;
+pub type MetaTypes = crate::filter::AnyOf<(
+    IsNone,
+    IsSome,
+    IsBorrowed,
+    IsNull,
+    IsOwned,
+    IsUnit,
+    IsInfallible,
+    IsEmptyCell,
+)>;
 
 pub const META_TYPES: MetaTypes = crate::filter::AnyOf::new();

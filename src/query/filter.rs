@@ -749,6 +749,104 @@ where
     }
 }
 
+impl<T1, T2, T3, T4, T5, T6, T7> TypeFilter for AnyOf<(T1, T2, T3, T4, T5, T6, T7)>
+where
+    T1: 'static,
+    T2: 'static,
+    T3: 'static,
+    T4: 'static,
+    T5: 'static,
+    T6: 'static,
+    T7: 'static,
+{
+    #[inline]
+    fn accepts_id(&self, type_id: TypeId) -> bool {
+        type_id == TypeId::of::<T1>()
+            || type_id == TypeId::of::<T2>()
+            || type_id == TypeId::of::<T3>()
+            || type_id == TypeId::of::<T4>()
+            || type_id == TypeId::of::<T5>()
+            || type_id == TypeId::of::<T6>()
+            || type_id == TypeId::of::<T7>()
+    }
+    #[inline]
+    fn as_erased(&self) -> ErasedFilter<'static> {
+        [
+            TypeId::of::<T1>(),
+            TypeId::of::<T2>(),
+            TypeId::of::<T3>(),
+            TypeId::of::<T4>(),
+            TypeId::of::<T5>(),
+            TypeId::of::<T6>(),
+            TypeId::of::<T7>(),
+        ]
+        .into()
+    }
+    #[inline]
+    fn into_erased<'q>(self) -> ValidErasedFilter<'q> {
+        ErasedFilter::Callback(|id| {
+            id == TypeId::of::<T1>()
+                || id == TypeId::of::<T2>()
+                || id == TypeId::of::<T3>()
+                || id == TypeId::of::<T4>()
+                || id == TypeId::of::<T5>()
+                || id == TypeId::of::<T6>()
+                || id == TypeId::of::<T7>()
+        })
+    }
+}
+
+impl<T1, T2, T3, T4, T5, T6, T7, T8> TypeFilter for AnyOf<(T1, T2, T3, T4, T5, T6, T7, T8)>
+where
+    T1: 'static,
+    T2: 'static,
+    T3: 'static,
+    T4: 'static,
+    T5: 'static,
+    T6: 'static,
+    T7: 'static,
+    T8: 'static,
+{
+    #[inline]
+    fn accepts_id(&self, type_id: TypeId) -> bool {
+        type_id == TypeId::of::<T1>()
+            || type_id == TypeId::of::<T2>()
+            || type_id == TypeId::of::<T3>()
+            || type_id == TypeId::of::<T4>()
+            || type_id == TypeId::of::<T5>()
+            || type_id == TypeId::of::<T6>()
+            || type_id == TypeId::of::<T7>()
+            || type_id == TypeId::of::<T8>()
+    }
+    #[inline]
+    fn as_erased(&self) -> ErasedFilter<'static> {
+        [
+            TypeId::of::<T1>(),
+            TypeId::of::<T2>(),
+            TypeId::of::<T3>(),
+            TypeId::of::<T4>(),
+            TypeId::of::<T5>(),
+            TypeId::of::<T6>(),
+            TypeId::of::<T7>(),
+            TypeId::of::<T8>(),
+        ]
+        .into()
+    }
+    #[inline]
+    fn into_erased<'q>(self) -> ValidErasedFilter<'q> {
+        ErasedFilter::Callback(|id| {
+            id == TypeId::of::<T1>()
+                || id == TypeId::of::<T2>()
+                || id == TypeId::of::<T3>()
+                || id == TypeId::of::<T4>()
+                || id == TypeId::of::<T5>()
+                || id == TypeId::of::<T6>()
+                || id == TypeId::of::<T7>()
+                || id == TypeId::of::<T8>()
+        })
+    }
+}
+
 impl<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16> TypeFilter
     for AnyOf<(
         T1,
