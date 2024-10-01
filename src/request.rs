@@ -8,6 +8,13 @@ pub type ErasedRequest<'q> = ErasedQuery<'q>;
 macro_rules! match_type {
     (@make_ty $ty:ty) => {$ty};
     (@make_ty) => {_};
+    (match ref $val:ident { $($bind:ident $(@ $ty:ty)? => $arm:expr $(,)?)*} ) => {
+        $(
+            if let Some($bind) = <dyn ::core::any::Any>::downcast_ref::<match_type!(@make_ty $($ty)?)>($val) {
+                return $arm;
+            }
+        )*
+    };
     (match $val:ident { $($bind:ident $(@ $ty:ty)? => $arm:expr $(,)?)*} ) => {
         $(
             let mut opt = Some($val);
@@ -73,6 +80,13 @@ pub trait Request {
     fn provide<T: 'static>(&mut self, value: T) {
         if self.requests(&value) {
             self.provide_unchecked(value);
+        }
+    }
+
+    #[inline]
+    fn provide_ref<T: 'static>(&mut self, value: &T) {
+        if self.requests(value) {
+            self.provide_ref_unchecked(value);
         }
     }
 
@@ -165,7 +179,10 @@ where
         macro_rules! cast_copy_provide {
             ($($f:ident)*) => {
                 $(
-                <dyn Any>::downcast_ref(value).map(|v| self.receiver().$f(*v));
+                    if let Some(v) = <dyn Any>::downcast_ref(value){
+                        self.receiver().$f(*v);
+                        return;
+                    }
                 )*
             };
         }
@@ -287,6 +304,34 @@ where
         };
 
         self.receiver().other_boxed(Box::new(value));
+    }
+
+    #[inline]
+    fn provide_ref<T: 'static>(&mut self, value: &T) {
+        match_type! {
+            match ref value {
+                v => if self.requests(v) { self.receiver().bool(*v) },
+                v => if self.requests(v) { self.receiver().u8(*v) },
+                v => if self.requests(v) { self.receiver().i8(*v) },
+                v => if self.requests(v) { self.receiver().u16(*v) },
+                v => if self.requests(v) { self.receiver().i16(*v) },
+                v => if self.requests(v) { self.receiver().u32(*v) },
+                v => if self.requests(v) { self.receiver().i32(*v) },
+                v => if self.requests(v) { self.receiver().u64(*v) },
+                v => if self.requests(v) { self.receiver().i64(*v) },
+                v => if self.requests(v) { self.receiver().u128(*v) },
+                v => if self.requests(v) { self.receiver().i128(*v) },
+                v => if self.requests(v) { self.receiver().f32(*v) },
+                v => if self.requests(v) { self.receiver().f64(*v) },
+                v => if self.requests(v) { self.receiver().char(*v) },
+                v @ &str => if self.requests(v) { self.receiver().str(v) },
+                v @ String => if self.requests(v.as_str()) { self.receiver().str(v) },
+                v @ Box<str> => if self.requests(v.as_ref()) { self.receiver().str(v) },
+                v @ &[u8] => if self.requests(v) { self.receiver().bytes(v) },
+                v @ Vec<u8> => if self.requests(v.as_slice()) { self.receiver().bytes(v) },
+                v @ Box<[u8]> => if self.requests(v.as_ref()) { self.receiver().bytes(v) },
+            }
+        }
     }
 
     #[inline]
