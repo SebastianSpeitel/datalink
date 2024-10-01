@@ -29,7 +29,7 @@ pub use request::Request;
 pub mod prelude {
     #[cfg(feature = "unique")]
     pub use crate::data::unique::{MaybeUnique, Unique};
-    pub use crate::data::Data;
+    pub use crate::data::{erased::ErasedData, Data};
     #[cfg(feature = "unique")]
     pub use crate::id::ID;
     #[cfg(feature = "derive")]
