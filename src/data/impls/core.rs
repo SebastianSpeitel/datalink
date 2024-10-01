@@ -20,7 +20,7 @@ macro_rules! impl_copy_data {
         impl Data for $ty {
             #[inline]
             fn query(&self, request: &mut impl Request) {
-                (*self).query_owned(request);
+                request.$fn(*self);
             }
             #[inline]
             fn query_owned(self, request: &mut impl Request) {
@@ -256,6 +256,15 @@ impl<D: Data> Data for std::sync::OnceLock<D> {
     fn query(&self, request: &mut impl Request) {
         if let Some(d) = self.get() {
             d.query(request);
+        } else {
+            request.provide_default_of::<meta::IsEmptyCell>();
+        }
+    }
+
+    #[inline]
+    fn query_owned(self, request: &mut impl Request) {
+        if let Some(d) = self.into_inner() {
+            d.query_owned(request);
         } else {
             request.provide_default_of::<meta::IsEmptyCell>();
         }
