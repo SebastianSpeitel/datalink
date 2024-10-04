@@ -54,7 +54,7 @@ macro_rules! impl_data {
                 #[inline]
                 fn provide_value(&self, request: &mut $crate::value::ValueRequest) {
                     $(
-                        request.provide_owned($val);
+                        request.provide_value($val);
                     )+
                 }
 
@@ -64,7 +64,7 @@ macro_rules! impl_data {
                     request: &mut $crate::value::ValueRequest<Q>,
                 ) -> impl $crate::value::Provided {
                     $(
-                        request.provide_owned($val);
+                        request.provide_value($val);
                     )+
                 }
             )?

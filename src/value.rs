@@ -1,8 +1,6 @@
-use std::any::Any;
+use core::any::Any;
 
-pub use crate::rr::prelude::{
-    Provided, Query as ValueQuery, Receiver as ValueReceiver, Request as ValueRequest,
-};
+use crate::{Data, Query, Receiver, Request, TypeFilter};
 
 #[derive(Debug)]
 pub enum Value {
@@ -53,7 +51,7 @@ impl Value {
     }
 }
 
-impl ValueReceiver for Value {
+impl Receiver for Value {
     #[inline]
     fn bool(&mut self, value: bool) {
         *self = Self::Bool(value);
@@ -130,8 +128,8 @@ impl ValueReceiver for Value {
     }
 
     #[inline]
-    fn str_owned(&mut self, value: String) {
-        *self = Self::String(value);
+    fn str_owned(&mut self, value: Box<str>) {
+        *self = Self::String(value.into_string());
     }
 
     #[inline]
@@ -140,8 +138,8 @@ impl ValueReceiver for Value {
     }
 
     #[inline]
-    fn bytes_owned(&mut self, value: Vec<u8>) {
-        *self = Self::Bytes(value);
+    fn bytes_owned(&mut self, value: Box<[u8]>) {
+        *self = Self::Bytes(value.into_vec());
     }
 
     #[inline]
@@ -151,43 +149,65 @@ impl ValueReceiver for Value {
 
     #[inline]
     fn other_ref(&mut self, value: &dyn Any) {
-        // todo: warn
+        // TODO: maybe dowcast to primitive types
+        let _ = value;
     }
 
     #[inline]
-    fn accepting() -> impl crate::rr::typeset::TypeSet + 'static {
+    fn accepting() -> impl TypeFilter + 'static {
         // Todo: check if the type is accepted
-        crate::rr::typeset::All
+        crate::filter::Any
     }
 }
 
-impl crate::Data for Value {
+impl Data for Value {
     #[inline]
-    fn provide_value(&self, request: &mut ValueRequest) {
-        self.provide_requested(request).debug_assert_provided();
+    fn query(&self, req: &mut impl Request) {
+        req.provide_discriminant(self);
+        match *self {
+            Self::Bool(b) => b.query(req),
+            Self::Bytes(ref b) => b.query(req),
+            Self::Char(c) => c.query(req),
+            Self::F32(n) => n.query(req),
+            Self::F64(n) => n.query(req),
+            Self::False => false.query(req),
+            Self::I128(n) => n.query(req),
+            Self::I16(n) => n.query(req),
+            Self::I32(n) => n.query(req),
+            Self::I64(n) => n.query(req),
+            Self::I8(n) => n.query(req),
+            Self::Other(ref o) => o.as_ref().query(req),
+            Self::String(ref s) => s.query(req),
+            Self::True => true.query(req),
+            Self::U128(n) => n.query(req),
+            Self::U16(n) => n.query(req),
+            Self::U32(n) => n.query(req),
+            Self::U64(n) => n.query(req),
+            Self::U8(n) => n.query(req),
+        }
     }
     #[inline]
-    fn provide_requested<Q: ValueQuery>(&self, request: &mut ValueRequest<Q>) -> impl Provided {
-        match *self {
-            Value::Bool(v) => request.provide_bool(v),
-            Value::U8(v) => request.provide_u8(v),
-            Value::I8(v) => request.provide_i8(v),
-            Value::U16(v) => request.provide_u16(v),
-            Value::I16(v) => request.provide_i16(v),
-            Value::U32(v) => request.provide_u32(v),
-            Value::I32(v) => request.provide_i32(v),
-            Value::U64(v) => request.provide_u64(v),
-            Value::I64(v) => request.provide_i64(v),
-            Value::U128(v) => request.provide_u128(v),
-            Value::I128(v) => request.provide_i128(v),
-            Value::F32(v) => request.provide_f32(v),
-            Value::F64(v) => request.provide_f64(v),
-            Value::Char(v) => request.provide_char(v),
-            Value::String(ref v) => request.provide_str(v),
-            Value::Bytes(ref v) => request.provide_bytes(v),
-            Value::Other(ref v) => request.provide_ref(v),
-            Value::True => request.provide_bool(true),
-            Value::False => request.provide_bool(false),
+    fn query_owned(self, req: &mut impl Request) {
+        match self {
+            Self::Bool(b) => b.query(req),
+            Self::Bytes(b) => b.query(req),
+            Self::Char(c) => c.query(req),
+            Self::F32(n) => n.query(req),
+            Self::F64(n) => n.query(req),
+            Self::False => false.query(req),
+            Self::I128(n) => n.query(req),
+            Self::I16(n) => n.query(req),
+            Self::I32(n) => n.query(req),
+            Self::I64(n) => n.query(req),
+            Self::I8(n) => n.query(req),
+            Self::Other(o) => o.query(req),
+            Self::String(s) => s.query(req),
+            Self::True => true.query(req),
+            Self::U128(n) => n.query(req),
+            Self::U16(n) => n.query(req),
+            Self::U32(n) => n.query(req),
+            Self::U64(n) => n.query(req),
+            Self::U8(n) => n.query(req),
         }
     }
 }
@@ -228,7 +248,7 @@ impl std::fmt::Display for Value {
 pub struct AllValues(Vec<Value>);
 
 #[warn(clippy::missing_trait_methods)]
-impl ValueReceiver for AllValues {
+impl Receiver for AllValues {
     #[inline]
     fn bool(&mut self, value: bool) {
         self.0.push(Value::Bool(value));
@@ -238,8 +258,8 @@ impl ValueReceiver for AllValues {
         self.0.push(Value::Bytes(value.to_owned()));
     }
     #[inline]
-    fn bytes_owned(&mut self, value: Vec<u8>) {
-        self.0.push(Value::Bytes(value));
+    fn bytes_owned(&mut self, value: Box<[u8]>) {
+        self.0.push(Value::Bytes(value.into_vec()));
     }
     #[inline]
     fn char(&mut self, value: char) {
@@ -278,8 +298,8 @@ impl ValueReceiver for AllValues {
         self.0.push(Value::String(value.to_owned()));
     }
     #[inline]
-    fn str_owned(&mut self, value: String) {
-        self.0.push(Value::String(value));
+    fn str_owned(&mut self, value: Box<str>) {
+        self.0.push(Value::String(value.into_string()));
     }
     #[inline]
     fn u128(&mut self, value: u128) {
@@ -310,23 +330,45 @@ impl ValueReceiver for AllValues {
     fn other_ref(&mut self, value: &dyn Any) {
         // Can't be stored as Value
     }
+
     #[inline]
-    fn accepting() -> impl crate::rr::typeset::TypeSet + 'static {
+    fn erased_data(&mut self, data: Box<crate::ErasedData>) {
+        self.0.push(Value::Other(Box::new(data)));
+    }
+
+    #[inline]
+    fn accepting() -> impl TypeFilter + 'static {
         Value::accepting()
     }
 }
 
-impl crate::Data for AllValues {
+impl Query for AllValues {
+    type Receiver<'q> = &'q mut Self;
+    type Filter<'q> = crate::filter::Any;
+    type KeyQuery<'q> = ();
+    type TargetQuery<'q> = ();
+
     #[inline]
-    fn provide_value(&self, request: &mut ValueRequest) {
-        for val in &self.0 {
-            val.provide_value(request);
-        }
+    fn link_query(&mut self) -> (Self::TargetQuery<'_>, Self::KeyQuery<'_>) {
+        ((), ())
     }
+
     #[inline]
-    fn provide_requested<Q: ValueQuery>(&self, request: &mut ValueRequest<Q>) -> impl Provided {
+    fn receiver(&mut self) -> Self::Receiver<'_> {
+        self
+    }
+
+    #[inline]
+    fn filter(&self) -> Self::Filter<'_> {
+        Default::default()
+    }
+}
+
+impl Data for AllValues {
+    #[inline]
+    fn query(&self, request: &mut impl Request) {
         for val in &self.0 {
-            val.provide_requested(request).debug_assert_provided();
+            val.query(request);
         }
     }
 }

@@ -1,15 +1,17 @@
-use crate::data::Data;
-use crate::links::{LinkError, Links};
-use crate::rr::{meta, prelude::*};
+use crate::meta;
+use crate::{Data, Request};
 
 impl Data for () {
     #[inline]
-    fn provide_value(&self, request: &mut Request) {
-        self.provide_requested(request).debug_assert_provided();
+    fn query(&self, request: &mut impl Request) {
+        request.provide_default_of::<meta::IsUnit>();
     }
+}
+
+impl Data for core::convert::Infallible {
     #[inline]
-    fn provide_requested<R: Query>(&self, request: &mut Request<R>) -> impl Provided {
-        request.provide_owned(meta::IsUnit);
+    fn query(&self, request: &mut impl Request) {
+        request.provide_default_of::<meta::IsInfallible>();
     }
 }
 
@@ -17,12 +19,12 @@ macro_rules! impl_copy_data {
     ($ty:ty,$fn:ident) => {
         impl Data for $ty {
             #[inline]
-            fn provide_value(&self, request: &mut Request) {
-                self.provide_requested(request).debug_assert_provided();
+            fn query(&self, request: &mut impl Request) {
+                request.$fn(*self);
             }
             #[inline]
-            fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
-                request.$fn(*self);
+            fn query_owned(self, request: &mut impl Request) {
+                request.$fn(self);
             }
         }
     };
@@ -45,57 +47,43 @@ impl_copy_data!(char, provide_char);
 
 impl Data for str {
     #[inline]
-    fn provide_value(&self, request: &mut Request) {
-        request.provide_str(self);
-    }
-    #[inline]
-    fn provide_requested<R: Query>(&self, request: &mut Request<R>) -> impl Provided {
+    fn query(&self, request: &mut impl Request) {
         request.provide_str(self);
     }
 }
 
 impl Data for &str {
     #[inline]
-    fn provide_value(&self, request: &mut Request) {
-        request.provide_str(self);
-    }
-    #[inline]
-    fn provide_requested<R: Query>(&self, request: &mut Request<R>) -> impl Provided {
+    fn query(&self, request: &mut impl Request) {
         request.provide_str(self);
     }
 }
 
 impl Data for [u8] {
     #[inline]
-    fn provide_value(&self, request: &mut Request) {
-        request.provide_bytes(self);
-    }
-    #[inline]
-    fn provide_requested<R: Query>(&self, request: &mut Request<R>) -> impl Provided {
+    fn query(&self, request: &mut impl Request) {
         request.provide_bytes(self);
     }
 }
 
 impl Data for &[u8] {
     #[inline]
-    fn provide_value(&self, request: &mut Request) {
+    fn query(&self, request: &mut impl Request) {
         request.provide_bytes(self);
     }
+}
+
+impl<const N: usize> Data for [u8; N] {
     #[inline]
-    fn provide_requested<R: Query>(&self, request: &mut Request<R>) -> impl Provided {
+    fn query(&self, request: &mut impl Request) {
         request.provide_bytes(self);
     }
 }
 
 impl Data for usize {
-    #[inline]
-    fn provide_value(&self, request: &mut Request) {
-        self.provide_requested(request).debug_assert_provided();
-    }
-
     #[allow(clippy::cast_possible_truncation)]
     #[inline]
-    fn provide_requested<R: Query>(&self, request: &mut Request<R>) -> impl Provided {
+    fn query(&self, request: &mut impl Request) {
         if usize::BITS >= u128::BITS {
             request.provide_u128(*self as u128);
         }
@@ -115,14 +103,9 @@ impl Data for usize {
 }
 
 impl Data for isize {
-    #[inline]
-    fn provide_value(&self, request: &mut Request) {
-        self.provide_requested(request).debug_assert_provided();
-    }
-
     #[allow(clippy::cast_possible_truncation)]
     #[inline]
-    fn provide_requested<R: Query>(&self, request: &mut Request<R>) -> impl Provided {
+    fn query(&self, request: &mut impl Request) {
         if isize::BITS >= i128::BITS {
             request.provide_i128(*self as i128);
         }
@@ -145,17 +128,8 @@ macro_rules! impl_nonzero_data {
     ($ty:ty) => {
         impl Data for $ty {
             #[inline]
-            fn provide_value(&self, request: &mut Request) {
-                if !self.provide_requested(request).was_provided() {
-                    self.get().provide_value(request);
-                }
-            }
-            #[inline]
-            fn provide_requested<Q: crate::rr::Query>(
-                &self,
-                request: &mut Request<Q>,
-            ) -> impl Provided {
-                self.get().provide_requested(request).was_provided()
+            fn query(&self, request: &mut impl Request) {
+                self.get().query(request);
             }
         }
     };
@@ -177,46 +151,23 @@ impl_nonzero_data!(core::num::NonZeroIsize);
 #[warn(clippy::missing_trait_methods)]
 impl<D: Data> Data for Option<D> {
     #[inline]
-    fn provide_value(&self, request: &mut Request) {
-        if !self.provide_requested(request).was_provided() {
-            if let Some(d) = self {
-                d.provide_value(request);
-            }
-        }
-    }
-    #[inline]
-    fn provide_requested<R: Query>(&self, request: &mut Request<R>) -> impl Provided {
+    fn query(&self, request: &mut impl Request) {
         if let Some(d) = self {
-            request.provide_owned(meta::IsSome);
-            d.provide_requested(request).was_provided()
+            request.provide_default_of::<meta::IsSome>();
+            d.query(request);
         } else {
-            request.provide_owned(meta::IsNone);
-            true
+            request.provide_default_of::<meta::IsNone>();
         }
     }
-
     #[inline]
-    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
+    fn query_owned(self, request: &mut impl Request) {
         if let Some(d) = self {
-            d.provide_links(links)?;
+            request.provide_default_of::<meta::IsSome>();
+            d.query_owned(request);
+        } else {
+            request.provide_default_of::<meta::IsNone>();
         }
-
-        Ok(())
     }
-
-    #[inline]
-    fn query_links(
-        &self,
-        links: &mut dyn Links,
-        query: &crate::query::Query,
-    ) -> Result<(), LinkError> {
-        if let Some(d) = self {
-            d.query_links(links, query)?;
-        }
-
-        Ok(())
-    }
-
     #[inline]
     fn get_id(&self) -> Option<crate::id::ID> {
         self.as_ref().and_then(Data::get_id)
@@ -224,53 +175,29 @@ impl<D: Data> Data for Option<D> {
 }
 
 #[warn(clippy::missing_trait_methods)]
-impl<'a, D: ?Sized> Data for std::borrow::Cow<'a, D>
+impl<D> Data for std::borrow::Cow<'_, D>
 where
-    &'a D: Data,
-    D: ToOwned,
-    D::Owned: Data,
+    D: Data + ToOwned<Owned: Data> + ?Sized,
 {
     #[inline]
-    fn provide_value(&self, request: &mut Request) {
-        if !self.provide_requested(request).was_provided() {
-            match self {
-                Self::Borrowed(data) => data.provide_value(request),
-                Self::Owned(data) => data.provide_value(request),
-            }
-        }
-    }
-
-    #[inline]
-    fn provide_requested<R: Query>(&self, request: &mut Request<R>) -> impl Provided {
+    fn query(&self, request: &mut impl Request) {
         match self {
             Self::Borrowed(data) => {
-                request.provide_owned(meta::IsBorrowed);
-                data.provide_requested(request).was_provided()
+                request.provide_default_of::<meta::IsBorrowed>();
+                data.query(request);
             }
             Self::Owned(data) => {
-                request.provide_owned(meta::IsOwned);
-                data.provide_requested(request).was_provided()
+                request.provide_default_of::<meta::IsOwned>();
+                data.query(request);
             }
         }
     }
 
     #[inline]
-    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
+    fn query_owned(self, request: &mut impl Request) {
         match self {
-            Self::Borrowed(data) => data.provide_links(links),
-            Self::Owned(data) => data.provide_links(links),
-        }
-    }
-
-    #[inline]
-    fn query_links(
-        &self,
-        links: &mut dyn Links,
-        query: &crate::query::Query,
-    ) -> Result<(), LinkError> {
-        match self {
-            Self::Borrowed(data) => data.query_links(links, query),
-            Self::Owned(data) => data.query_links(links, query),
+            Self::Borrowed(data) => data.query(request),
+            Self::Owned(data) => data.query_owned(request),
         }
     }
 
@@ -285,10 +212,9 @@ where
 
 #[cfg(feature = "unique")]
 #[warn(clippy::missing_trait_methods)]
-impl<D: crate::data::unique::Unique + ?Sized> crate::data::unique::Unique
-    for std::borrow::Cow<'_, D>
+impl<D> crate::data::unique::Unique for std::borrow::Cow<'_, D>
 where
-    D: ToOwned,
+    D: crate::data::unique::Unique + ?Sized + ToOwned,
     D::Owned: crate::data::unique::Unique,
 {
     #[inline]
@@ -303,57 +229,53 @@ where
 #[warn(clippy::missing_trait_methods)]
 impl<D: Data> Data for core::cell::OnceCell<D> {
     #[inline]
-    fn provide_value(&self, request: &mut Request) {
-        self.get().provide_value(request);
+    fn query(&self, request: &mut impl Request) {
+        if let Some(d) = self.get() {
+            d.query(request);
+        } else {
+            request.provide_default_of::<meta::IsEmptyCell>();
+        }
     }
     #[inline]
-    fn provide_requested<R: Query>(&self, request: &mut Request<R>) -> impl Provided {
-        self.get().provide_requested(request).was_provided()
+    fn query_owned(self, request: &mut impl Request) {
+        if let Some(d) = self.into_inner() {
+            d.query_owned(request);
+        } else {
+            request.provide_default_of::<meta::IsEmptyCell>();
+        }
     }
-    #[inline]
-    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-        self.get().provide_links(links)
-    }
-    #[inline]
-    fn query_links(
-        &self,
-        links: &mut dyn Links,
-        query: &crate::query::Query,
-    ) -> Result<(), LinkError> {
-        self.get().query_links(links, query)
-    }
-
     #[inline]
     fn get_id(&self) -> Option<crate::id::ID> {
-        self.get().get_id()
+        self.get().and_then(Data::get_id)
     }
 }
 
+// move to std
 impl<D: Data> Data for std::sync::OnceLock<D> {
     #[inline]
-    fn provide_value(&self, request: &mut Request) {
-        self.get().provide_value(request);
-    }
-    #[inline]
-    fn provide_requested<R: Query>(&self, request: &mut Request<R>) -> impl Provided {
-        self.get().provide_requested(request).was_provided()
-    }
-    #[inline]
-    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-        self.get().provide_links(links)
-    }
-    #[inline]
-    fn query_links(
-        &self,
-        links: &mut dyn Links,
-        query: &crate::query::Query,
-    ) -> Result<(), LinkError> {
-        self.get().query_links(links, query)
+    fn query(&self, request: &mut impl Request) {
+        if let Some(d) = self.get() {
+            d.query(request);
+        } else {
+            request.provide_default_of::<meta::IsEmptyCell>();
+        }
     }
 
     #[inline]
-    fn get_id(&self) -> Option<crate::id::ID> {
-        self.get().get_id()
+    fn query_owned(self, request: &mut impl Request) {
+        if let Some(d) = self.into_inner() {
+            d.query_owned(request);
+        } else {
+            request.provide_default_of::<meta::IsEmptyCell>();
+        }
+    }
+}
+
+impl Data for dyn core::any::Any {
+    #[inline]
+    fn query(&self, request: &mut impl Request) {
+        request.provide_with(|| self.type_id());
+        // todo: provide more information
     }
 }
 
