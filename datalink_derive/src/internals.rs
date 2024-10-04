@@ -49,9 +49,9 @@ impl<'a> Field<'a> {
 
         let target = match self.attrs.link {
             Mode::Skip => None,
-            _ if self.attrs.provide == Mode::Copy => Some(quote!(self.#member)),
+            Mode::Auto if self.attrs.provide == Mode::Copy => Some(quote!(self.#member)),
             Mode::Copy => Some(quote!(self.#member)),
-            Mode::Yes | Mode::Ref => Some(quote!(&self.#member)),
+            Mode::Auto | Mode::Ref => Some(quote!(&self.#member)),
             Mode::Clone => Some(quote!(self.#member.clone())),
             Mode::ToOwned => Some(quote!(self.#member.to_owned())),
         };
@@ -60,8 +60,10 @@ impl<'a> Field<'a> {
 
         let provide = match self.attrs.provide {
             Mode::Skip => None,
-            _ if self.attrs.link == Mode::Copy => Some(quote!(request.provide(self.#member);)),
-            Mode::Yes | Mode::Ref => Some(quote!(request.provide_ref(&self.#member);)),
+            Mode::Auto if self.attrs.link == Mode::Copy => {
+                Some(quote!(request.provide(self.#member);))
+            }
+            Mode::Auto | Mode::Ref => Some(quote!(request.provide_ref(&self.#member);)),
             Mode::Clone => Some(quote!(request.provide(self.#member.clone());)),
             Mode::ToOwned => Some(quote!(request.provide(self.#member.to_owned());)),
             Mode::Copy => Some(quote!(request.provide(self.#member);)),
@@ -123,7 +125,7 @@ impl<'a> Field<'a> {
 enum Mode {
     #[default]
     Skip,
-    Yes,
+    Auto,
     Ref,
     Clone,
     ToOwned,
@@ -136,14 +138,13 @@ impl syn::parse::Parse for Mode {
         let ident = input.parse::<syn::Ident>()?;
         match ident.to_string().as_str() {
             "skip" => Ok(Self::Skip),
-            "yes" => Ok(Self::Yes),
             "ref" => Ok(Self::Ref),
             "clone" => Ok(Self::Clone),
             "to_owned" => Ok(Self::ToOwned),
             "copy" => Ok(Self::Copy),
             _ => Err(syn::Error::new_spanned(
                 ident,
-                "expected one of: skip, yes, ref, clone, to_owned, copy",
+                "expected one of: skip, ref, clone, to_owned, copy",
             )),
         }
     }
@@ -159,53 +160,64 @@ impl Default for Attrs {
     fn default() -> Self {
         Self {
             provide: Mode::Skip,
-            link: Mode::Yes,
+            link: Mode::Auto,
         }
     }
 }
 
 impl Attrs {
     pub fn from_attr(attr: &syn::Attribute) -> syn::Result<Self> {
-        let mut attrs = Self::default();
+        let mut provide = Mode::Skip;
+        let mut link = Mode::Auto;
+        let mut both = None;
 
         attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("skip") {
-                attrs.provide = Mode::Skip;
-                attrs.link = Mode::Skip;
+                both.replace(Mode::Skip);
                 return Ok(());
             }
             if meta.path.is_ident("provide") {
                 if let Ok(mode) = meta.value() {
-                    attrs.provide = mode.parse()?;
+                    provide = mode.parse()?;
                 } else {
-                    attrs.provide = Mode::Yes;
+                    provide = Mode::Auto;
                 }
                 return Ok(());
             }
             if meta.path.is_ident("link") {
                 if let Ok(mode) = meta.value() {
-                    attrs.link = mode.parse()?;
+                    link = mode.parse()?;
                 } else {
-                    attrs.link = Mode::Yes;
+                    link = Mode::Auto;
                 }
                 return Ok(());
             }
             if meta.path.is_ident("clone") {
-                attrs.link = Mode::Clone;
+                both.replace(Mode::Clone);
                 return Ok(());
             }
             if meta.path.is_ident("to_owned") {
-                attrs.link = Mode::ToOwned;
+                both.replace(Mode::ToOwned);
                 return Ok(());
             }
             if meta.path.is_ident("copy") {
-                attrs.link = Mode::Copy;
+                both.replace(Mode::Copy);
                 return Ok(());
             }
             Err(meta.error("unsupported attribute"))
         })?;
 
-        Ok(attrs)
+        match (both, provide) {
+            (Some(mode), Mode::Auto) => provide = mode,
+            _ => {}
+        }
+
+        match (both, link) {
+            (Some(mode), Mode::Auto) => link = mode,
+            _ => {}
+        }
+        
+        Ok(Self { provide, link })
     }
 }
 
