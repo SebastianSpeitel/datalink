@@ -197,8 +197,8 @@ impl Request for dyn ErasableRequest + '_ {
                 drop(rec_t);
                 if let Some(req_t) = req_t {
                     let (k, t) = link.into_tuple();
-                    k.query_owned(req_t);
-                    rec_k(Box::new(t));
+                    t.query_owned(req_t);
+                    rec_k(Box::new(k));
                 } else {
                     // If no request for target, just provide the key
                     rec_k(Box::new(link.into_key()));
