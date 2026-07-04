@@ -1,0 +1,13 @@
+struct OnDrop;
+
+impl Drop for OnDrop {
+    fn drop(&mut self) {
+        println!("OnDrop dropped");
+    }
+}
+
+fn main() {
+    let _on_drop = OnDrop;
+
+    return println!("return");
+}
