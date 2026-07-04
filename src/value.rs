@@ -1,8 +1,6 @@
-use std::any::Any;
+use core::any::Any;
 
-pub use crate::rr::prelude::{
-    Provided, Query as ValueQuery, Receiver as ValueReceiver, Request as ValueRequest,
-};
+use crate::{Data, Request, Visitor};
 
 #[derive(Debug)]
 pub enum Value {
@@ -33,300 +31,238 @@ impl Value {
     #[must_use]
     pub fn as_number(&self) -> Option<isize> {
         match *self {
-            Value::True => Some(1),
-            Value::False => Some(0),
-            Value::Bool(v) => Some(v.into()),
-            Value::U8(v) => Some(v.into()),
-            Value::I8(v) => Some(v.into()),
-            Value::U16(v) => v.try_into().ok(),
-            Value::I16(v) => Some(v.into()),
-            Value::U32(v) => v.try_into().ok(),
-            Value::I32(v) => v.try_into().ok(),
-            Value::U64(v) => v.try_into().ok(),
-            Value::I64(v) => v.try_into().ok(),
-            Value::U128(v) => v.try_into().ok(),
-            Value::I128(v) => v.try_into().ok(),
-            Value::F32(v) => Some(v as isize),
-            Value::F64(v) => Some(v as isize),
+            Self::True => Some(1),
+            Self::False => Some(0),
+            Self::Bool(v) => Some(v.into()),
+            Self::U8(v) => Some(v.into()),
+            Self::I8(v) => Some(v.into()),
+            Self::U16(v) => v.try_into().ok(),
+            Self::I16(v) => Some(v.into()),
+            Self::U32(v) => v.try_into().ok(),
+            Self::I32(v) => v.try_into().ok(),
+            Self::U64(v) => v.try_into().ok(),
+            Self::I64(v) => v.try_into().ok(),
+            Self::U128(v) => v.try_into().ok(),
+            Self::I128(v) => v.try_into().ok(),
+            Self::F32(v) => Some(v as isize),
+            Self::F64(v) => Some(v as isize),
             _ => None,
         }
     }
 }
 
-impl ValueReceiver for Value {
+impl Data for Value {
     #[inline]
-    fn bool(&mut self, value: bool) {
-        *self = Self::Bool(value);
-    }
-
-    #[inline]
-    fn u8(&mut self, value: u8) {
-        *self = Self::U8(value);
-    }
-
-    #[inline]
-    fn i8(&mut self, value: i8) {
-        *self = Self::I8(value);
-    }
-
-    #[inline]
-    fn u16(&mut self, value: u16) {
-        *self = Self::U16(value);
-    }
-
-    #[inline]
-    fn i16(&mut self, value: i16) {
-        *self = Self::I16(value);
-    }
-
-    #[inline]
-    fn u32(&mut self, value: u32) {
-        *self = Self::U32(value);
-    }
-
-    #[inline]
-    fn i32(&mut self, value: i32) {
-        *self = Self::I32(value);
-    }
-
-    #[inline]
-    fn u64(&mut self, value: u64) {
-        *self = Self::U64(value);
-    }
-
-    #[inline]
-    fn i64(&mut self, value: i64) {
-        *self = Self::I64(value);
-    }
-
-    #[inline]
-    fn u128(&mut self, value: u128) {
-        *self = Self::U128(value);
-    }
-
-    #[inline]
-    fn i128(&mut self, value: i128) {
-        *self = Self::I128(value);
-    }
-
-    #[inline]
-    fn f32(&mut self, value: f32) {
-        *self = Self::F32(value);
-    }
-
-    #[inline]
-    fn f64(&mut self, value: f64) {
-        *self = Self::F64(value);
-    }
-
-    #[inline]
-    fn char(&mut self, value: char) {
-        *self = Self::Char(value);
-    }
-
-    #[inline]
-    fn str(&mut self, value: &str) {
-        *self = Self::String(value.to_owned());
-    }
-
-    #[inline]
-    fn str_owned(&mut self, value: String) {
-        *self = Self::String(value);
-    }
-
-    #[inline]
-    fn bytes(&mut self, value: &[u8]) {
-        *self = Self::Bytes(value.to_owned());
-    }
-
-    #[inline]
-    fn bytes_owned(&mut self, value: Vec<u8>) {
-        *self = Self::Bytes(value);
-    }
-
-    #[inline]
-    fn other_boxed(&mut self, value: Box<dyn Any>) {
-        *self = Self::Other(value);
-    }
-
-    #[inline]
-    fn other_ref(&mut self, value: &dyn Any) {
-        // todo: warn
-    }
-
-    #[inline]
-    fn accepting() -> impl crate::rr::typeset::TypeSet + 'static {
-        // Todo: check if the type is accepted
-        crate::rr::typeset::All
-    }
-}
-
-impl crate::Data for Value {
-    #[inline]
-    fn provide_value(&self, request: &mut ValueRequest) {
-        self.provide_requested(request).debug_assert_provided();
-    }
-    #[inline]
-    fn provide_requested<Q: ValueQuery>(&self, request: &mut ValueRequest<Q>) -> impl Provided {
+    fn query(&self, mut req: impl Request) {
+        req.provide_discriminant(self);
         match *self {
-            Value::Bool(v) => request.provide_bool(v),
-            Value::U8(v) => request.provide_u8(v),
-            Value::I8(v) => request.provide_i8(v),
-            Value::U16(v) => request.provide_u16(v),
-            Value::I16(v) => request.provide_i16(v),
-            Value::U32(v) => request.provide_u32(v),
-            Value::I32(v) => request.provide_i32(v),
-            Value::U64(v) => request.provide_u64(v),
-            Value::I64(v) => request.provide_i64(v),
-            Value::U128(v) => request.provide_u128(v),
-            Value::I128(v) => request.provide_i128(v),
-            Value::F32(v) => request.provide_f32(v),
-            Value::F64(v) => request.provide_f64(v),
-            Value::Char(v) => request.provide_char(v),
-            Value::String(ref v) => request.provide_str(v),
-            Value::Bytes(ref v) => request.provide_bytes(v),
-            Value::Other(ref v) => request.provide_ref(v),
-            Value::True => request.provide_bool(true),
-            Value::False => request.provide_bool(false),
+            Self::Bool(b) => req.provide_value(b),
+            Self::Bytes(ref b) => req.provide_bytes(b),
+            Self::Char(c) => req.provide_value(c),
+            Self::F32(n) => req.provide_value(n),
+            Self::F64(n) => req.provide_value(n),
+            Self::False => req.provide_value(false),
+            Self::I128(n) => req.provide_value(n),
+            Self::I16(n) => req.provide_value(n),
+            Self::I32(n) => req.provide_value(n),
+            Self::I64(n) => req.provide_value(n),
+            Self::I8(n) => req.provide_value(n),
+            Self::Other(ref o) => req.visitor().visit_any(o.as_ref()),
+            Self::String(ref s) => req.provide_str(s),
+            Self::True => req.provide_value(true),
+            Self::U128(n) => req.provide_value(n),
+            Self::U16(n) => req.provide_value(n),
+            Self::U32(n) => req.provide_value(n),
+            Self::U64(n) => req.provide_value(n),
+            Self::U8(n) => req.provide_value(n),
+        }
+    }
+    #[inline]
+    fn query_owned(self, mut req: impl Request) {
+        req.provide_discriminant(&self);
+        match self {
+            Self::Bool(b) => req.provide_value(b),
+            Self::Bytes(b) => req.provide_value(b),
+            Self::Char(c) => req.provide_value(c),
+            Self::F32(n) => req.provide_value(n),
+            Self::F64(n) => req.provide_value(n),
+            Self::False => req.provide_value(false),
+            Self::I128(n) => req.provide_value(n),
+            Self::I16(n) => req.provide_value(n),
+            Self::I32(n) => req.provide_value(n),
+            Self::I64(n) => req.provide_value(n),
+            Self::I8(n) => req.provide_value(n),
+            Self::Other(o) => req.visitor().visit_any_owned(o),
+            Self::String(s) => req.provide_value(s),
+            Self::True => req.provide_value(true),
+            Self::U128(n) => req.provide_value(n),
+            Self::U16(n) => req.provide_value(n),
+            Self::U32(n) => req.provide_value(n),
+            Self::U64(n) => req.provide_value(n),
+            Self::U8(n) => req.provide_value(n),
         }
     }
 }
 
-impl std::fmt::Display for Value {
+impl core::fmt::Display for Value {
     #[inline]
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match *self {
-            Value::True => f.write_str("true"),
-            Value::False => f.write_str("false"),
-            Value::Bool(v) => {
+            Self::True => f.write_str("true"),
+            Self::False => f.write_str("false"),
+            Self::Bool(v) => {
                 if v {
                     f.write_str("true")
                 } else {
                     f.write_str("false")
                 }
             }
-            Value::U8(v) => f.write_fmt(format_args!("{v}u8")),
-            Value::I8(v) => f.write_fmt(format_args!("{v}i8")),
-            Value::U16(v) => f.write_fmt(format_args!("{v}u16")),
-            Value::I16(v) => f.write_fmt(format_args!("{v}i16")),
-            Value::U32(v) => f.write_fmt(format_args!("{v}u32")),
-            Value::I32(v) => f.write_fmt(format_args!("{v}i32")),
-            Value::U64(v) => f.write_fmt(format_args!("{v}u64")),
-            Value::I64(v) => f.write_fmt(format_args!("{v}i64")),
-            Value::U128(v) => f.write_fmt(format_args!("{v}u128")),
-            Value::I128(v) => f.write_fmt(format_args!("{v}i128")),
-            Value::F32(v) => f.write_fmt(format_args!("{v}f32")),
-            Value::F64(v) => f.write_fmt(format_args!("{v}f64")),
-            Value::Char(v) => f.write_fmt(format_args!("'{}'", v.escape_default())),
-            Value::String(ref v) => f.write_fmt(format_args!("{v:?}")),
-            Value::Bytes(ref v) => f.write_fmt(format_args!("b{}", v.escape_ascii())),
-            Value::Other(ref v) => f.write_fmt(format_args!("{v:?}")),
+            Self::U8(v) => f.write_fmt(format_args!("{v}u8")),
+            Self::I8(v) => f.write_fmt(format_args!("{v}i8")),
+            Self::U16(v) => f.write_fmt(format_args!("{v}u16")),
+            Self::I16(v) => f.write_fmt(format_args!("{v}i16")),
+            Self::U32(v) => f.write_fmt(format_args!("{v}u32")),
+            Self::I32(v) => f.write_fmt(format_args!("{v}i32")),
+            Self::U64(v) => f.write_fmt(format_args!("{v}u64")),
+            Self::I64(v) => f.write_fmt(format_args!("{v}i64")),
+            Self::U128(v) => f.write_fmt(format_args!("{v}u128")),
+            Self::I128(v) => f.write_fmt(format_args!("{v}i128")),
+            Self::F32(v) => f.write_fmt(format_args!("{v}f32")),
+            Self::F64(v) => f.write_fmt(format_args!("{v}f64")),
+            Self::Char(v) => f.write_fmt(format_args!("'{}'", v.escape_default())),
+            Self::String(ref v) => f.write_fmt(format_args!("{v:?}")),
+            Self::Bytes(ref v) => f.write_fmt(format_args!("b{}", v.escape_ascii())),
+            Self::Other(ref v) => f.write_fmt(format_args!("{v:?}")),
         }
     }
 }
 #[derive(Debug, Default)]
 pub struct AllValues(Vec<Value>);
 
-#[warn(clippy::missing_trait_methods)]
-impl ValueReceiver for AllValues {
+impl Visitor for AllValues {
     #[inline]
-    fn bool(&mut self, value: bool) {
+    fn visit_bool(&mut self, value: bool) {
         self.0.push(Value::Bool(value));
     }
     #[inline]
-    fn bytes(&mut self, value: &[u8]) {
+    fn visit_bytes(&mut self, value: &[u8]) {
         self.0.push(Value::Bytes(value.to_owned()));
     }
     #[inline]
-    fn bytes_owned(&mut self, value: Vec<u8>) {
-        self.0.push(Value::Bytes(value));
+    fn visit_bytes_owned(&mut self, value: Box<[u8]>) {
+        self.0.push(Value::Bytes(value.into_vec()));
     }
     #[inline]
-    fn char(&mut self, value: char) {
+    fn visit_char(&mut self, value: char) {
         self.0.push(Value::Char(value));
     }
     #[inline]
-    fn f32(&mut self, value: f32) {
+    fn visit_f32(&mut self, value: f32) {
         self.0.push(Value::F32(value));
     }
     #[inline]
-    fn f64(&mut self, value: f64) {
+    fn visit_f64(&mut self, value: f64) {
         self.0.push(Value::F64(value));
     }
     #[inline]
-    fn i128(&mut self, value: i128) {
+    fn visit_i128(&mut self, value: i128) {
         self.0.push(Value::I128(value));
     }
     #[inline]
-    fn i16(&mut self, value: i16) {
+    fn visit_i16(&mut self, value: i16) {
         self.0.push(Value::I16(value));
     }
     #[inline]
-    fn i32(&mut self, value: i32) {
+    fn visit_i32(&mut self, value: i32) {
         self.0.push(Value::I32(value));
     }
     #[inline]
-    fn i64(&mut self, value: i64) {
+    fn visit_i64(&mut self, value: i64) {
         self.0.push(Value::I64(value));
     }
     #[inline]
-    fn i8(&mut self, value: i8) {
+    fn visit_i8(&mut self, value: i8) {
         self.0.push(Value::I8(value));
     }
     #[inline]
-    fn str(&mut self, value: &str) {
+    fn visit_str(&mut self, value: &str) {
         self.0.push(Value::String(value.to_owned()));
     }
     #[inline]
-    fn str_owned(&mut self, value: String) {
-        self.0.push(Value::String(value));
+    fn visit_str_owned(&mut self, value: Box<str>) {
+        self.0.push(Value::String(value.into_string()));
     }
     #[inline]
-    fn u128(&mut self, value: u128) {
+    fn visit_u128(&mut self, value: u128) {
         self.0.push(Value::U128(value));
     }
     #[inline]
-    fn u16(&mut self, value: u16) {
+    fn visit_u16(&mut self, value: u16) {
         self.0.push(Value::U16(value));
     }
     #[inline]
-    fn u32(&mut self, value: u32) {
+    fn visit_u32(&mut self, value: u32) {
         self.0.push(Value::U32(value));
     }
     #[inline]
-    fn u64(&mut self, value: u64) {
+    fn visit_u64(&mut self, value: u64) {
         self.0.push(Value::U64(value));
     }
     #[inline]
-    fn u8(&mut self, value: u8) {
+    fn visit_u8(&mut self, value: u8) {
         self.0.push(Value::U8(value));
     }
     #[inline]
-    fn other_boxed(&mut self, value: Box<dyn Any>) {
-        self.0.push(Value::Other(value));
+    fn visit_other<T: 'static>(&mut self, value: T) {
+        self.0.push(Value::Other(Box::new(value)));
     }
     #[inline]
-    #[allow(unused_variables)]
-    fn other_ref(&mut self, value: &dyn Any) {
+    fn visit_other_ref<T: 'static>(&mut self, _value: &T) {
         // Can't be stored as Value
     }
     #[inline]
-    fn accepting() -> impl crate::rr::typeset::TypeSet + 'static {
-        Value::accepting()
+    fn visit_any(&mut self, _value: &dyn core::any::Any) {
+        // Can't be stored as Value
+    }
+    #[inline]
+    fn visit_any_owned(&mut self, value: Box<dyn core::any::Any>) {
+        self.0.push(Value::Other(value));
     }
 }
 
-impl crate::Data for AllValues {
+impl Request for AllValues {
     #[inline]
-    fn provide_value(&self, request: &mut ValueRequest) {
-        for val in &self.0 {
-            val.provide_value(request);
-        }
+    fn schema(&self) -> impl crate::schema::Schema {
+        crate::schema::ONLY_VALUES
+    }
+
+    #[inline]
+    fn visitor(&mut self) -> impl Visitor {
+        self
+    }
+
+    #[inline]
+    fn as_erased(&mut self) -> impl crate::request::ErasableRequest {
+        self
+    }
+}
+
+impl crate::request::ErasableRequest for AllValues {
+    #[inline]
+    fn erased_schema(&self) -> crate::schema::SimpleSchema<'_> {
+        crate::schema::OnlyValues::SCHEMA
     }
     #[inline]
-    fn provide_requested<Q: ValueQuery>(&self, request: &mut ValueRequest<Q>) -> impl Provided {
+    fn erased_visitor(&mut self) -> crate::request::erased::ErasedVisitor {
+        Some(self)
+    }
+}
+
+impl Data for AllValues {
+    #[inline]
+    fn query(&self, mut request: impl Request) {
         for val in &self.0 {
-            val.provide_requested(request).debug_assert_provided();
+            val.query(request.by_ref());
         }
     }
 }

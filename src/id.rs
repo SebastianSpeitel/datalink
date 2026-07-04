@@ -1,4 +1,4 @@
-use std::{
+use core::{
     fmt::{Debug, Display},
     num::NonZeroU128,
     str::FromStr,
@@ -101,7 +101,7 @@ impl ID<NonZeroU128> {
     #[inline]
     #[must_use]
     pub const unsafe fn new_unchecked(id: u128) -> Self {
-        Self::from_raw(NonZeroU128::new_unchecked(id))
+        unsafe { Self::from_raw(NonZeroU128::new_unchecked(id)) }
     }
 }
 
@@ -116,24 +116,26 @@ impl<T: FromStr> FromStr for ID<T> {
 
 impl<T: Display> Display for ID<T> {
     #[inline]
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         Display::fmt(&self.0, f)
     }
 }
 
 impl<T: Debug> Debug for ID<T> {
     #[inline]
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         f.debug_tuple("ID").field(&self.0).finish()
     }
 }
 
 #[cfg(feature = "random")]
-impl rand::distributions::Distribution<ID> for rand::distributions::Standard {
+impl rand::distr::Distribution<ID> for rand::distr::StandardUniform {
     #[inline]
     fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> ID {
         loop {
-            let id = rng.gen();
+            use rand::RngExt;
+
+            let id = rng.random();
             if let Some(id) = NonZeroU128::new(id) {
                 break ID(id);
             }
@@ -145,5 +147,52 @@ impl<T> From<T> for ID<T> {
     #[inline]
     fn from(value: T) -> Self {
         Self::from_raw(value)
+    }
+}
+
+impl<T: Copy + 'static> crate::Visitor for Option<ID<T>> {
+    #[inline]
+    fn visit_any(&mut self, value: &dyn core::any::Any) {
+        if self.is_some() {
+            return;
+        }
+        *self = value.downcast_ref().copied();
+    }
+    #[inline]
+    fn visit_any_owned(&mut self, value: Box<dyn core::any::Any>) {
+        if self.is_some() {
+            return;
+        }
+        if let Ok(id) = value.downcast::<ID<T>>() {
+            *self = Some(*id);
+        }
+    }
+    // todo: impl other
+}
+
+impl<T: Copy + 'static> crate::request::ErasableRequest for Option<ID<T>> {
+    #[inline]
+    fn erased_schema(&self) -> crate::schema::SimpleSchema<'_> {
+        // todo: more specific
+        crate::schema::OnlyValues::SCHEMA
+    }
+    #[inline]
+    fn erased_visitor(&mut self) -> crate::request::erased::ErasedVisitor {
+        Some(self)
+    }
+}
+
+impl<T: Copy + 'static> crate::Request for Option<ID<T>> {
+    #[inline]
+    fn schema(&self) -> impl crate::schema::Schema {
+        crate::r#type::Types::<(ID<T>,)>::new()
+    }
+    #[inline]
+    fn visitor(&mut self) -> impl crate::request::Visitor {
+        self
+    }
+    #[inline]
+    fn as_erased(&mut self) -> impl crate::request::ErasableRequest {
+        self
     }
 }

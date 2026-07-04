@@ -1,111 +1,127 @@
-use serde_json::{Map, Number, Value as Val};
+use serde_json::{Map, Number, Value};
 
-use crate::data::{Data, Provided};
-use crate::links::{LinkError, Links, LinksExt};
-use crate::rr::{meta, Query, Request};
+use crate::{Data, LinkBuilder, Request};
 
-impl Data for Val {
+impl Data for Value {
     #[inline]
-    fn provide_value(&self, request: &mut Request) {
-        self.provide_requested(request).debug_assert_provided();
-    }
-
-    #[inline]
-    fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
-        match self {
-            Val::Null => request.provide_owned(meta::IsNull),
-            Val::Bool(b) => request.provide_ref(b),
-            Val::Number(n) => n.provide_requested(request).debug_assert_provided(),
-            Val::String(s) => request.provide_str(s),
-            Val::Array(..) | Val::Object(..) => {
-                // Array and object have no value
+    fn query(&self, mut request: impl Request) {
+        request.provide_discriminant(self);
+        match *self {
+            Self::Null => {
+                #[cfg(feature = "well_known")]
+                crate::well_known::NONE.query_owned(request);
             }
+            Self::Bool(b) => b.query_owned(request),
+            Self::String(ref s) => s.query_owned(request),
+            Self::Number(ref n) => n.query_owned(request),
+            Self::Array(ref v) => v.query_owned(request),
+            Self::Object(ref o) => o.query_owned(request),
         }
     }
 
     #[inline]
-    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
+    fn query_owned(self, mut request: impl Request) {
+        request.provide_discriminant(&self);
         match self {
-            Val::Array(v) => v.provide_links(links),
-            Val::Object(m) => m.provide_links(links),
-            _ => Ok(()),
-        }
-    }
-
-    #[inline]
-    fn get_id(&self) -> Option<crate::id::ID> {
-        match self {
-            #[cfg(feature = "well_known")]
-            Val::Null => crate::well_known::NONE.get_id(),
-            _ => None,
+            Self::Null => {
+                #[cfg(feature = "well_known")]
+                crate::well_known::NONE.query_owned(request);
+            }
+            Self::Bool(b) => b.query_owned(request),
+            Self::String(s) => s.query_owned(request),
+            Self::Number(n) => n.query_owned(request),
+            Self::Array(v) => v.query_owned(request),
+            Self::Object(o) => o.query_owned(request),
         }
     }
 }
 
-impl Data for Map<String, Val> {
+impl Data for Map<String, Value> {
     #[inline]
-    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-        links.extend(self.iter().map(|(k, v)| (k.to_owned(), v.to_owned())))?;
-        Ok(())
+    fn query(&self, mut request: impl Request) {
+        for (k, v) in self {
+            request.provide_link_with(|| LinkBuilder::new_ownable(v).key_ownable(k));
+        }
     }
 
     #[inline]
-    fn query_links(
-        &self,
-        links: &mut dyn Links,
-        query: &crate::query::Query,
-    ) -> Result<(), LinkError> {
-        use crate::query::Filter;
-        links.extend(self.iter().filter_map(|(k, v)| {
-            if query.matches_owned((k, v)) {
-                Some((k.to_owned(), v.to_owned()))
-            } else {
-                None
-            }
-        }))?;
-        Ok(())
+    fn query_owned(self, mut request: impl Request) {
+        for l in self {
+            request.provide_link(l);
+        }
     }
 }
 
 impl Data for Number {
     #[inline]
-    fn provide_value(&self, request: &mut Request) {
-        self.provide_requested(request).debug_assert_provided();
+    fn query(&self, mut request: impl Request) {
+        request.try_provide_value_with(|| self.as_f64());
+        request.try_provide_value_with(|| self.as_i128());
+        request.try_provide_value_with(|| self.as_i64());
+        request.try_provide_value_with(|| self.as_u128());
+        request.try_provide_value_with(|| self.as_u64());
     }
     #[inline]
-    fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
-        if request.requests::<u64>() {
-            if let Some(n) = self.as_u64() {
-                request.provide_u64(n);
-            }
-        }
-        if request.requests::<i64>() {
-            if let Some(n) = self.as_i64() {
-                request.provide_i64(n);
-            }
-        }
-        if request.requests::<f64>() {
-            if let Some(n) = self.as_f64() {
-                request.provide_f64(n);
-            }
-        }
+    fn query_owned(self, mut request: impl Request) {
+        request.try_provide_value_with(|| self.as_f64());
+        request.try_provide_value_with(|| self.as_i128());
+        request.try_provide_value_with(|| self.as_i64());
+        request.try_provide_value_with(|| self.as_u128());
+        request.try_provide_value_with(|| self.as_u64());
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{DataExt, ErasedData};
 
     #[test]
     fn number() {
         let n = Number::from(42);
-        let mut r = None;
-        let mut req = Request::new_erased(&mut r);
-        n.provide_value(&mut req);
-        assert_eq!(r, Some(42u64));
+        let mut r = None::<u64>;
+        (&n).query(r.by_ref());
+        assert_eq!(r.unwrap(), 42u64);
 
-        let mut r = Request::<Option<u64>>::default();
-        n.provide_requested(&mut r).assert_provided();
-        assert_eq!(r.take(), Some(42));
+        let mut r = None::<u64>;
+        n.query(r.by_ref());
+        assert_eq!(r.unwrap(), 42u64);
+
+        let dyn_num = &n as &ErasedData;
+        let deb_num = n.format::<crate::data::format::DEBUG>();
+
+        assert_ne!(deb_num.to_string().trim(), "");
+
+        dbg!(&n);
+        dbg!(&dyn_num);
+        dbg!(&deb_num);
+
+        assert_eq!(format!("{dyn_num:?}"), format!("{deb_num:?}"));
+    }
+
+    #[test]
+    fn map() {
+        let mut map = Map::new();
+        map.insert("a".to_string(), Value::from(42));
+        map.insert("b".to_string(), Value::from("hello"));
+
+        let items = map.as_items();
+
+        assert_eq!(items.len(), 2);
+
+        assert_eq!(items[0].0.as_string().unwrap(), "a");
+        assert_eq!(items[0].1.as_u64().unwrap(), 42);
+
+        assert_eq!(items[1].0.as_string().unwrap(), "b");
+        assert_eq!(items[1].1.as_string().unwrap(), "hello");
+
+        let dyn_map = &map as &ErasedData;
+        let deb_map = map.format::<crate::data::format::DEBUG>();
+
+        dbg!(&map);
+        dbg!(&dyn_map);
+        dbg!(&deb_map);
+
+        assert_eq!(format!("{dyn_map:?}"), format!("{deb_map:?}"));
     }
 }

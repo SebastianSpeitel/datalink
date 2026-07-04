@@ -1,113 +1,139 @@
-use ::std::collections::HashMap;
+use std::collections::HashMap;
+#[cfg(target_os = "linux")]
+use std::os::unix::prelude::*;
 
-use crate::data::{Data, Provided};
-use crate::links::{LinkError, Links, LinksExt};
-use crate::rr::{Query, Request};
+use crate::{Data, LinkBuilder, Request, RequestExt};
 
 impl Data for String {
     #[inline]
-    fn provide_value(&self, request: &mut Request) {
-        self.provide_requested(request).debug_assert_provided();
+    fn query(&self, mut request: impl Request) {
+        request.provide_str(self);
+    }
+    #[inline]
+    fn query_owned(self, mut request: impl Request) {
+        request.provide_value(self);
+    }
+}
+
+/// # Example
+/// ```
+/// use datalink::{Data, DataExt};
+///
+/// let s = Box::from("Hello, world!");
+/// assert_eq!(Box::<str>::as_string(&s).unwrap(), "Hello, world!");
+/// ```
+impl Data for Box<str> {
+    #[inline]
+    fn query(&self, mut request: impl Request) {
+        request.provide_str(self);
     }
 
     #[inline]
-    fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
-        request.provide_str(self);
+    fn query_owned(self, mut request: impl Request) {
+        request.provide_value(self);
     }
 }
+
+impl Data for Box<[u8]> {
+    #[inline]
+    fn query(&self, mut request: impl Request) {
+        request.provide_bytes(self);
+    }
+
+    #[inline]
+    fn query_owned(self, mut request: impl Request) {
+        request.provide_value(self);
+    }
+}
+
 mod path {
     use super::*;
-    #[cfg(target_os = "linux")]
-    use ::std::os::unix::ffi::OsStrExt;
-    use ::std::path::{Path, PathBuf};
+    use std::path::{Path, PathBuf};
 
     impl Data for PathBuf {
         #[inline]
-        fn provide_value(&self, request: &mut Request) {
-            self.provide_requested(request).debug_assert_provided();
-        }
-
-        #[inline]
-        fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
-            request.provide_ref(self);
-
-            if request.requests::<&str>() {
-                request.provide_str(self.to_string_lossy().as_ref());
+        fn query(&self, mut request: impl Request) {
+            use std::borrow::Cow;
+            if request.would_accept_value_of::<&str>() || request.would_accept_value_of::<String>()
+            {
+                match self.to_string_lossy() {
+                    Cow::Borrowed(s) => request.provide_str(s),
+                    Cow::Owned(s) => request.provide_value(s),
+                }
             }
 
             #[cfg(target_os = "linux")]
-            request.provide_bytes(OsStrExt::as_bytes(self.as_os_str()));
+            self.as_os_str().as_bytes().query(request);
         }
     }
 
     impl Data for Path {
         #[inline]
-        fn provide_value(&self, request: &mut Request) {
-            request.provide_str(self.to_string_lossy().as_ref());
-            #[cfg(target_os = "linux")]
-            request.provide_bytes(OsStrExt::as_bytes(self.as_os_str()));
-        }
-
-        #[inline]
-        fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
-            if request.requests::<&str>() {
-                request.provide_str(self.to_string_lossy().as_ref());
+        fn query(&self, mut request: impl Request) {
+            use std::borrow::Cow;
+            if request.would_accept_value_of::<&str>() || request.would_accept_value_of::<String>()
+            {
+                match self.to_string_lossy() {
+                    Cow::Borrowed(s) => request.provide_str(s),
+                    Cow::Owned(s) => request.provide_value(s),
+                }
             }
 
             #[cfg(target_os = "linux")]
-            request.provide_bytes(OsStrExt::as_bytes(self.as_os_str()));
+            self.as_os_str().as_bytes().query(request);
+        }
+    }
+
+    impl Data for &Path {
+        #[inline]
+        fn query(&self, request: impl Request) {
+            (*self).query(request);
         }
     }
 }
 
 mod ffi {
     use super::*;
-    use ::std::ffi::{OsStr, OsString};
-    #[cfg(target_os = "linux")]
-    use ::std::os::unix::ffi::OsStrExt;
+    use std::ffi::{OsStr, OsString};
 
     impl Data for OsString {
         #[inline]
-        fn provide_value(&self, request: &mut Request) {
-            self.provide_requested(request).debug_assert_provided();
-        }
-
-        #[inline]
-        fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
-            request.provide_ref(self);
-
-            if request.requests::<&str>() {
-                request.provide_str(self.to_string_lossy().as_ref());
+        fn query(&self, mut request: impl Request) {
+            use std::borrow::Cow;
+            if request.would_accept_value_of::<&str>() || request.would_accept_value_of::<String>()
+            {
+                match self.to_string_lossy() {
+                    Cow::Borrowed(s) => request.provide_str(s),
+                    Cow::Owned(s) => request.provide_value(s),
+                }
             }
 
             #[cfg(target_os = "linux")]
-            request.provide_bytes(OsStrExt::as_bytes(self.as_os_str()));
+            self.as_bytes().query(request);
         }
     }
 
     impl Data for OsStr {
         #[inline]
-        fn provide_value(&self, request: &mut Request) {
-            request.provide_str(self.to_string_lossy().as_ref());
-            #[cfg(target_os = "linux")]
-            request.provide_bytes(OsStrExt::as_bytes(self));
-        }
-
-        #[inline]
-        fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
-            if request.requests::<&str>() {
-                request.provide_str(self.to_string_lossy().as_ref());
+        fn query(&self, mut request: impl Request) {
+            use std::borrow::Cow;
+            if request.would_accept_value_of::<&str>() || request.would_accept_value_of::<String>()
+            {
+                match self.to_string_lossy() {
+                    Cow::Borrowed(s) => request.provide_str(s),
+                    Cow::Owned(s) => request.provide_value(s),
+                }
             }
 
             #[cfg(target_os = "linux")]
-            request.provide_bytes(OsStrExt::as_bytes(self));
+            self.as_bytes().query(request);
         }
     }
 }
 
 mod net {
     use super::*;
-    use ::std::net;
+    use std::net;
 
     #[cfg(not(feature = "well_known"))]
     const IP: &str = "ip";
@@ -119,205 +145,133 @@ mod net {
 
     impl Data for net::Ipv4Addr {
         #[inline]
-        fn provide_value(&self, request: &mut Request) {
-            self.provide_requested(request).debug_assert_provided();
-        }
-
-        #[inline]
-        fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
-            request.provide_ref(self);
-            if request.requests::<String>() {
-                request.provide_str_owned(self.to_string());
-            }
+        fn query(&self, mut request: impl Request) {
+            request.provide_value(self.to_bits());
+            request.provide_value(self.octets());
+            request.provide_value_with(|| self.to_string());
         }
     }
 
     impl Data for net::Ipv6Addr {
         #[inline]
-        fn provide_value(&self, request: &mut Request) {
-            self.provide_requested(request).debug_assert_provided();
-        }
-
-        #[inline]
-        fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
-            request.provide_ref(self);
-            if request.requests::<String>() {
-                request.provide_str_owned(self.to_string());
-            }
+        fn query(&self, mut request: impl Request) {
+            request.provide_value(self.to_bits());
+            request.provide_value(self.octets());
+            request.provide_value(self.segments());
+            request.provide_value_with(|| self.to_string());
         }
     }
 
     impl Data for net::IpAddr {
         #[inline]
-        fn provide_value(&self, request: &mut Request) {
-            self.provide_requested(request).debug_assert_provided();
-        }
+        fn query(&self, mut request: impl Request) {
+            request.provide_discriminant(self);
 
-        #[inline]
-        fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
             match self {
-                Self::V4(ip) => ip.provide_requested(request).was_provided(),
-                Self::V6(ip) => ip.provide_requested(request).was_provided(),
+                Self::V4(ip) => ip.query(request),
+                Self::V6(ip) => ip.query(request),
             }
         }
 
         #[inline]
-        fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
+        fn query_owned(self, mut request: impl Request) {
+            request.provide_discriminant(&self);
             match self {
-                Self::V4(ip) => ip.provide_links(links),
-                Self::V6(ip) => ip.provide_links(links),
+                Self::V4(ip) => ip.query_owned(request),
+                Self::V6(ip) => ip.query_owned(request),
             }
         }
     }
 
     impl Data for net::SocketAddrV4 {
         #[inline]
-        fn provide_value(&self, request: &mut Request) {
-            self.provide_requested(request).debug_assert_provided();
-        }
-
-        #[inline]
-        fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
-            request.provide_ref(self);
-
-            if request.requests::<String>() {
-                request.provide_str_owned(self.to_string());
-            }
-        }
-
-        #[inline]
-        fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-            links.push_keyed(Box::new(self.ip().to_owned()), Box::new(IP))?;
-            links.push_keyed(Box::new(self.port()), Box::new(PORT))?;
-
-            Ok(())
+        fn query(&self, mut request: impl Request) {
+            request.provide_value_with(|| self.to_string());
+            request.provide_link((IP, *self.ip()));
+            request.provide_link((PORT, self.port()));
         }
     }
 
     impl Data for net::SocketAddrV6 {
         #[inline]
-        fn provide_value(&self, request: &mut Request) {
-            self.provide_requested(request).debug_assert_provided();
-        }
-
-        #[inline]
-        fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
-            request.provide_ref(self);
-
-            if request.requests::<String>() {
-                request.provide_str_owned(self.to_string());
-            }
-        }
-
-        #[inline]
-        fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-            links.push_keyed(Box::new(self.ip().to_owned()), Box::new(IP))?;
-            links.push_keyed(Box::new(self.port()), Box::new(PORT))?;
-
-            Ok(())
+        fn query(&self, mut request: impl Request) {
+            request.provide_value_with(|| self.to_string());
+            request.provide_link((IP, *self.ip()));
+            request.provide_link((PORT, self.port()));
+            request.provide_link(("flowinfo", self.flowinfo()));
+            request.provide_link(("scope_id", self.scope_id()));
         }
     }
 
     impl Data for net::SocketAddr {
         #[inline]
-        fn provide_value(&self, request: &mut Request) {
-            self.provide_requested(request).debug_assert_provided();
-        }
+        fn query(&self, mut request: impl Request) {
+            request.provide_discriminant(self);
 
-        #[inline]
-        fn provide_requested<Q: Query>(&self, request: &mut Request<Q>) -> impl Provided {
             match self {
-                Self::V4(addr) => addr.provide_requested(request).was_provided(),
-                Self::V6(addr) => addr.provide_requested(request).was_provided(),
-            }
-        }
-
-        #[inline]
-        fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-            match self {
-                Self::V4(addr) => addr.provide_links(links),
-                Self::V6(addr) => addr.provide_links(links),
+                Self::V4(ip) => ip.query(request),
+                Self::V6(ip) => ip.query(request),
             }
         }
     }
 }
 
-impl<K, V, S: ::std::hash::BuildHasher> Data for HashMap<K, V, S>
+impl<K, V, S: ::core::hash::BuildHasher> Data for HashMap<K, V, S>
 where
-    K: Data + ToOwned + 'static,
-    K::Owned: Data,
-    V: Data + ToOwned + 'static,
-    V::Owned: Data,
+    K: Data + ToOwned<Owned: Data + 'static> + 'static,
+    V: Data + ToOwned<Owned: Data + 'static> + 'static,
 {
     #[inline]
-    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-        links.extend(self.iter().map(|(k, t)| (k.to_owned(), t.to_owned())))?;
-        Ok(())
+    fn query(&self, mut request: impl Request) {
+        for (k, v) in self {
+            request.provide_link_with(|| LinkBuilder::new_ownable(v).key_ownable(k));
+        }
     }
 
     #[inline]
-    fn query_links(
-        &self,
-        links: &mut dyn Links,
-        query: &crate::query::Query,
-    ) -> Result<(), LinkError> {
-        use crate::query::Filter;
-        links.extend(self.iter().filter_map(|(k, v)| {
-            if query.matches_owned((k, v)) {
-                Some((k.to_owned(), v.to_owned()))
-            } else {
-                None
-            }
-        }))?;
-        Ok(())
+    fn query_owned(self, mut request: impl Request) {
+        for e in self {
+            request.provide_link(e);
+        }
     }
 }
 
 impl<T> Data for Vec<T>
 where
-    T: Data + ToOwned + 'static,
-    T::Owned: Data,
+    T: Data + ToOwned<Owned: Data + 'static> + 'static,
 {
     #[inline]
-    fn provide_links(&self, links: &mut dyn Links) -> Result<(), LinkError> {
-        links.extend(self.iter().map(ToOwned::to_owned))?;
-        Ok(())
+    fn query(&self, mut request: impl Request) {
+        for e in self {
+            let link = LinkBuilder::new_ownable(e);
+            request.provide_link_with(|| link);
+        }
     }
 
     #[inline]
-    fn query_links(
-        &self,
-        links: &mut dyn Links,
-        query: &crate::query::Query,
-    ) -> Result<(), LinkError> {
-        use crate::query::Filter;
-        links.extend(self.iter().filter_map(|v| {
-            if Filter::<T>::matches(query, v) {
-                Some(v.to_owned())
-            } else {
-                None
-            }
-        }))?;
-        Ok(())
+    fn query_owned(self, mut request: impl Request) {
+        for d in self {
+            request.provide_link((d,));
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::data::DataExt;
+    use crate::DataExt;
 
     #[test]
     fn string() {
         let s = String::from("Hello, world!");
 
-        assert_eq!(DataExt::as_str(&s), Some("Hello, world!".into()));
+        assert_eq!(DataExt::as_string(&s), Some("Hello, world!".into()));
     }
 
     #[test]
     fn str() {
         let s = "Hello, world!";
 
-        assert_eq!(DataExt::as_str(&s), Some("Hello, world!".into()));
+        assert_eq!(DataExt::as_string(&s), Some("Hello, world!".into()));
     }
 
     #[test]
