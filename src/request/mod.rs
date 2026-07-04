@@ -75,6 +75,13 @@ pub trait Request {
     }
 
     #[inline]
+    fn provide_ref<T: 'static>(&mut self, value: &T) {
+        if self.schema().accepts_value(value) {
+            self.provide_ref_unchecked(value);
+        }
+    }
+
+    #[inline]
     fn provide_value_with<T: 'static>(&mut self, f: impl FnOnce() -> T) {
         if self.schema().accepts_value_of::<T>() {
             self.provide_value(f());
@@ -428,6 +435,54 @@ mod tests {
         let mut req = Option::<String>::None;
         "Hello world".query(req.by_ref());
         assert_eq!(req.unwrap(), "Hello world");
+    }
+
+    #[test]
+    fn test_erased_link_query() {
+        use crate::request::{ErasableRequest, ErasedRequest};
+        use crate::data::erased::ErasableData;
+
+        struct KeyCapturedTargetFiltered {
+            key: Option<Box<dyn ErasableData>>,
+            target: Option<u8>,
+        }
+
+        impl ErasableRequest for KeyCapturedTargetFiltered {
+            fn erased_visitor(&mut self) -> crate::request::erased::ErasedVisitor {
+                None
+            }
+            fn erased_link_request(&mut self) -> (Option<ErasedRequest>, Option<ErasedRequest>) {
+                (
+                    Some(ErasedRequest::Borrowed(&mut self.key)),
+                    Some(ErasedRequest::Borrowed(&mut self.target)),
+                )
+            }
+        }
+
+        impl Request for KeyCapturedTargetFiltered {
+            fn visitor(&mut self) -> impl crate::request::Visitor {
+                ()
+            }
+            fn as_erased(&mut self) -> impl ErasableRequest {
+                self
+            }
+        }
+
+        let mut req = KeyCapturedTargetFiltered {
+            key: None,
+            target: None,
+        };
+        let erased: &mut dyn ErasableRequest = &mut req;
+        erased.provide_link_unchecked(("key_str", 42u8));
+
+        // Target should be correctly queried and matched
+        assert_eq!(req.target, Some(42));
+
+        // Key should be correctly captured and received
+        let key_data = req.key.expect("key should be captured");
+        let mut key_str = Option::<String>::None;
+        key_data.erased_query(&mut key_str.as_erased());
+        assert_eq!(key_str, Some("key_str".to_string()));
     }
 }
 
